@@ -1,20 +1,19 @@
-Spectare
+TimeCache
 -----------------------
 
-Spectare is a simple proxy between grafana and a postgresql database.
+TimeCache is a simple C# proxy server between grafana and postgresql/timescale.
 It is intended specifically to work with time-series data.
 
-What does it do?
+What can it do?
 
-1) Cache results of popular (or fixed) queries, so subsequent updates only need 'new' data.
-2) Meta-Commands for data analysis
-3) (Eventually)Perform filtering of query results, so multiple 'specific' queries can be resolved by a single more-expensive query.
+1) Cache results of popular (or fixed) queries, so subsequent updates only need to hit the database for 'new' data. This frees up the database considerably when lots of dashboards are displaying information that is largely static (ie "old" data that is unlikely to change)
+2) Meta-Commands for some very simple data analysis within grafana.
+3) Decomposition of queries so multiple queries that may only differ in a predicate filter can share cached data. (Note, this is very experimental)
 
 
 Libraries/Programs used:
 NPGSQL
-Timescaledb
-Postgresql
+Postgresql with Timescaledb
 Grafana
 
 
@@ -37,7 +36,7 @@ CREATE DATABASE perftest
     CONNECTION LIMIT = -1;
 
 // Create 2 users
-spectare_user
+timecache_user
 grafana_reader
 
 // Create new schema 'stats'
@@ -54,7 +53,7 @@ CREATE TABLE stats.timeseries_data
 TABLESPACE pg_default;
 
 ALTER TABLE stats.timeseries_data
-    OWNER to spectare_user;
+    OWNER to timecache_user;
 	
 select create_hypertable('stats.timeseries_data', 'sample_time');
 
@@ -66,6 +65,5 @@ grant select on table stats.timeseries_data to grafana_reader;
 STAT COLLECTION
 ------------------
 
-Sample data can be generated using one of two methods:
-1) SimpleStatsGenerator - Creates 2 hours worth of random data
-2) TODO: PerfCollector - service to collect live performance counter data.
+SimpleStatsGenerator - Create testing data
+
