@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="TestData" targetNamespace="http://tempuri.org/TestData.xsd" xmlns:mstns="http://tempuri.org/TestData.xsd" xmlns="http://tempuri.org/TestData.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:msprop="urn:schemas-microsoft-com:xml-msprop" attributeFormDefault="qualified" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:appinfo source="urn:schemas-microsoft-com:xml-msdatasource">
+      <DataSource DefaultConnectionIndex="0" FunctionsComponentName="QueriesTableAdapter" Modifier="AutoLayout, AnsiClass, Class, Public" SchemaSerializationMode="IncludeSchema" xmlns="urn:schemas-microsoft-com:xml-msdatasource">
+        <Connections />
+        <Tables />
+        <Sources />
+      </DataSource>
+    </xs:appinfo>
+  </xs:annotation>
+  <xs:element name="TestData" msdata:IsDataSet="true" msdata:UseCurrentLocale="true" msprop:EnableTableAdapterManager="true" msprop:Generator_DataSetName="TestData" msprop:Generator_UserDSName="TestData">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="TimeseriesDataID" msprop:Generator_TableClassName="TimeseriesDataIDDataTable" msprop:Generator_TableVarName="tableTimeseriesDataID" msprop:Generator_TablePropName="TimeseriesDataID" msprop:Generator_RowDeletingName="TimeseriesDataIDRowDeleting" msprop:Generator_RowChangingName="TimeseriesDataIDRowChanging" msprop:Generator_RowEvHandlerName="TimeseriesDataIDRowChangeEventHandler" msprop:Generator_RowDeletedName="TimeseriesDataIDRowDeleted" msprop:Generator_UserTableName="TimeseriesDataID" msprop:Generator_RowChangedName="TimeseriesDataIDRowChanged" msprop:Generator_RowEvArgName="TimeseriesDataIDRowChangeEvent" msprop:Generator_RowClassName="TimeseriesDataIDRow">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="SampleTime" msprop:Generator_ColumnVarNameInTable="columnSampleTime" msprop:Generator_ColumnPropNameInRow="SampleTime" msprop:Generator_ColumnPropNameInTable="SampleTimeColumn" msprop:Generator_UserColumnName="SampleTime" type="xs:dateTime" minOccurs="0" />
+              <xs:element name="CurrentValue" msprop:Generator_ColumnVarNameInTable="columnCurrentValue" msprop:Generator_ColumnPropNameInRow="CurrentValue" msprop:Generator_ColumnPropNameInTable="CurrentValueColumn" msprop:Generator_UserColumnName="CurrentValue" type="xs:double" minOccurs="0" />
+              <xs:element name="MachineID" msprop:Generator_ColumnVarNameInTable="columnMachineID" msprop:Generator_ColumnPropNameInRow="MachineID" msprop:Generator_ColumnPropNameInTable="MachineIDColumn" msprop:Generator_UserColumnName="MachineID" type="xs:int" minOccurs="0" />
+              <xs:element name="CategoryID" msprop:Generator_ColumnVarNameInTable="columnCategoryID" msprop:Generator_ColumnPropNameInRow="CategoryID" msprop:Generator_ColumnPropNameInTable="CategoryIDColumn" msprop:Generator_UserColumnName="CategoryID" type="xs:int" minOccurs="0" />
+              <xs:element name="CounterID" msprop:Generator_ColumnVarNameInTable="columnCounterID" msprop:Generator_ColumnPropNameInRow="CounterID" msprop:Generator_ColumnPropNameInTable="CounterIDColumn" msprop:Generator_UserColumnName="CounterID" type="xs:int" minOccurs="0" />
+              <xs:element name="InstanceID" msprop:Generator_ColumnVarNameInTable="columnInstanceID" msprop:Generator_ColumnPropNameInRow="InstanceID" msprop:Generator_ColumnPropNameInTable="InstanceIDColumn" msprop:Generator_UserColumnName="InstanceID" type="xs:int" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

@@ -1,0 +1,47 @@
+# Caching Service Meta-Commands
+Queries can be decorated with **Options** or **Meta-Commands** that will modify/extend the behavior of the query.
+
+All decoration must come at the start of the query.
+
+The structure of commands/options is:
+
+`[{command1},{command2},...,{commandN}]{option1,...,optionN}query`
+
+#### Meta-Commands
+Meta-Commands are special queries that will return additional timeseries data in addition to the results of the original query.
+
+These commands can also include options, simple key=value pairings, that control only the behavior of the meta-command. Options specified outside of the
+command block apply to the main query.
+
+`[{command,key=value}]`
+Ex: `[{regress,points=20}]`
+
+Not all commands will support options. Options may be shared amongst commands, but vary in behavior.
+
+Notes: (These will be demonstrated in example graphs below..)
+* Commands can be repeated for the same query, allowing different options. (IF different options are not used, the resulting data will be duplicative).
+* Commands are evaluated per-series, so queries returning multiple metrics will have multiple command results.
+
+#### Query Options
+Options can be specified to control the behavior of the query (in particular, caching)
+
+These must be provided AFTER any meta-commands, in squiggyly brackets only:
+
+`[{meta-command1}]{option=value,option2=value2} query`
+
+`{option1=value1} query`
+
+Current options:
+* 'cache' or 'allowcache' (boolean) = `true|false` Allows for disabling caching of the query, default is true.
+* 'timeout' (integer) = `120` Query timeout, in seconds. Default is 120.
+* 'updateinterval' (timespan) = `00:00:01.00`. Duration required to force an update of cached results. Default is 1 minute.
+* 'checkbucket' or 'checkbucketduration' (boolean) = `true|false` . If true, query updates will refresh at least 1 full bucket when time_bucket() (or equivalent) is used in a query.
+* 'metaonly' or 'metacommandonly' (boolean) = `true|false`. If true, the query is not executed (or at least results are not returned), only the results of the meta-command are returned. Default is false.
+
+Options for meta-commands
+* 'replace (text) = `value,replacement` . Allows replacement of a value in the original query with another value. Replacements apply to meta-commands only. Note: It's expected that this will replace filtered metrics in a where() clause, but replacement is done using String.Replace() so it doesnt matter where the original is found...
+
+Option Values:
+TimeSpan values should be formatted as 'dd:hh:mm.ss'
+
+#### Command Examples

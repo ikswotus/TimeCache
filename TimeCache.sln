@@ -1,0 +1,61 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30225.117
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeCacheNetworkServer", "TimeCacheNetworkServer\TimeCacheNetworkServer.csproj", "{610294AC-C0A6-4210-8A44-C933892FFAAA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleStatsGenerator", "SimpleStatsGenerator\SimpleStatsGenerator.csproj", "{FF7862A8-7A46-4516-A2BF-1AC9D277A1AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostgresqlCommunicator", "PostgresqlCommunicator\PostgresqlCommunicator.csproj", "{FFC0465B-F9D0-4626-93E3-15D056C6B324}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utils", "Utils\Utils.csproj", "{A27B5888-3EC7-4FE3-B336-91806AAFF09E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeCacheGUI", "TimeCacheGUI\TimeCacheGUI.csproj", "{85C0ABA6-101D-4F52-8211-9E6DAD4DED1D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SLog", "SLog\SLog.csproj", "{93A1BBA2-BA05-4E20-AED0-98219FB91A06}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeCacheService", "TimeCacheService\TimeCacheService.csproj", "{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{610294AC-C0A6-4210-8A44-C933892FFAAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{610294AC-C0A6-4210-8A44-C933892FFAAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{610294AC-C0A6-4210-8A44-C933892FFAAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{610294AC-C0A6-4210-8A44-C933892FFAAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF7862A8-7A46-4516-A2BF-1AC9D277A1AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF7862A8-7A46-4516-A2BF-1AC9D277A1AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF7862A8-7A46-4516-A2BF-1AC9D277A1AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF7862A8-7A46-4516-A2BF-1AC9D277A1AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFC0465B-F9D0-4626-93E3-15D056C6B324}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFC0465B-F9D0-4626-93E3-15D056C6B324}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFC0465B-F9D0-4626-93E3-15D056C6B324}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFC0465B-F9D0-4626-93E3-15D056C6B324}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A27B5888-3EC7-4FE3-B336-91806AAFF09E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A27B5888-3EC7-4FE3-B336-91806AAFF09E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A27B5888-3EC7-4FE3-B336-91806AAFF09E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A27B5888-3EC7-4FE3-B336-91806AAFF09E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{85C0ABA6-101D-4F52-8211-9E6DAD4DED1D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{85C0ABA6-101D-4F52-8211-9E6DAD4DED1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{85C0ABA6-101D-4F52-8211-9E6DAD4DED1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{85C0ABA6-101D-4F52-8211-9E6DAD4DED1D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93A1BBA2-BA05-4E20-AED0-98219FB91A06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93A1BBA2-BA05-4E20-AED0-98219FB91A06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93A1BBA2-BA05-4E20-AED0-98219FB91A06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93A1BBA2-BA05-4E20-AED0-98219FB91A06}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9BE1B9A3-D253-4E7F-B3AD-C60E91C05690}
+	EndGlobalSection
+EndGlobal
