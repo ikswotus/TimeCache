@@ -1,71 +1,36 @@
-Spectare
+TimeCache
 -----------------------
 
-Spectare is a simple proxy between grafana and a postgresql database.
+TimeCache is a simple C# proxy server between grafana and postgresql/timescale.
 It is intended specifically to work with time-series data.
 
-What does it do?
+What can it do?
 
-1) Cache results of popular (or fixed) queries, so subsequent updates only need 'new' data.
-2) Meta-Commands for data analysis
-3) (Eventually)Perform filtering of query results, so multiple 'specific' queries can be resolved by a single more-expensive query.
+1) Cache results of popular (or fixed) queries, so subsequent updates only need to hit the database for 'new' data. This frees up the database considerably when lots of dashboards are displaying information that is largely static (ie "old" data that is unlikely to change)
+2) Meta-Commands for some very simple data analysis within grafana.
+3) Decomposition of queries so multiple queries that may only differ in a predicate filter can share cached data. (Note, this is very experimental)
 
 
 Libraries/Programs used:
 NPGSQL
-Timescaledb
-Postgresql
+Postgresql with Timescaledb
 Grafana
 
+-----------------------------
+Project Overview
 
+TimeCacheGUI - Simple WPF application to allow starting/stopping a server and viewing logs.
+TimeCacheService - Allows running the TimeCacheNetworkServer as a windows service. Logs periodically flushed to disk.
+TimeCacheNetworkServer - Actual server/caching implementation, all the fun stuff is in here.
+PostgresqlCommunicator - Handles postgresql wire format. Allows parsing the connection info from grafana's requests and translating the c# data table back into the raw psql format for grafana.
 
-Test Setup
+Other:
+SLog - Extremely simple logging helper.
+SimpleStatsGenerator - Small executable to generate testing data.
+Utils - Helper classes, table manager for bulk inserting sample stats.
 
-Default installation of postgresql 12
+--------------------------------------
+Getting started
 
-// Setup timescaledb
-create extension if not exists timescaledb;
-
-// Create new database
-CREATE DATABASE perftest
-    WITH 
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    LC_COLLATE = 'English_United States.1252'
-    LC_CTYPE = 'English_United States.1252'
-    TABLESPACE = pg_default
-    CONNECTION LIMIT = -1;
-
-// Create 2 users
-spectare_user
-grafana_reader
-
-// Create new schema 'stats'
-CREATE TABLE stats.timeseries_data
-(
-    sample_time timestamp with time zone NOT NULL,
-    machine_name text COLLATE pg_catalog."default" NOT NULL,
-    current_value real NOT NULL,
-    category_name text COLLATE pg_catalog."default" NOT NULL,
-    counter_name text COLLATE pg_catalog."default" NOT NULL,
-    instance_name text COLLATE pg_catalog."default" NOT NULL
-)
-
-TABLESPACE pg_default;
-
-ALTER TABLE stats.timeseries_data
-    OWNER to spectare_user;
-	
-select create_hypertable('stats.timeseries_data', 'sample_time');
-
-// Grafana permissions
-grant usage on schema stats to grafana_reader;
-grant select on table stats.timeseries_data to grafana_reader;
-
-------------------
-STAT COLLECTION
-------------------
-
-Sample data can be generated using one of two methods:
-1) SimpleStatsGenerator - Creates 2 hours worth of random data
-2) TODO: PerfCollector - service to collect live performance counter data.
+To have grafana talk to a TimeCacheNetworkServer, it simply needs to be added as a postgresql data source. It mimics enough of the connection setup so grafana will recognize it as a valid postgresql db. 
+Note: Currently it does NOT support any TLS/SSL modes.
