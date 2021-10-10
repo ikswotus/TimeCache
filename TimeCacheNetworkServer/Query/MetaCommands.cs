@@ -50,7 +50,7 @@ namespace TimeCacheNetworkServer
                     Maths.RegressionLine line = Maths.SimpleLinearRegression.GetLine(points);
 
                     string reportedValue = useDiff ? Math.Round(line.End.Value - line.Start.Value, 6).ToString() : Math.Round(line.Regression.Slope, 6).ToString();
-                    string textKey = "regress_" + ts.Key + "_" + ((ptok == -1) ? "" : "(" + ptok.ToString() + ")") + "_" + reportedValue;
+                    string textKey = "regress_" + ts.Key + "_" + ((ptok == -1) ? "*" : "(" + ptok.ToString() + ")") + "_" + reportedValue + (useDiff ? "(d)" : "(s)");
 
                     // if we are timebucketing, we need to pretend the line is complete, otherwise grafana will add fill values for us
                     //  TODO: Still ugliness around end points...might need further adjustments for time_bucketing
@@ -314,7 +314,8 @@ namespace TimeCacheNetworkServer
             // TODO: Determine based on column name, not type?
             foreach(DataColumn dc in table.Columns)
             {
-                if (dc.DataType == typeof(DateTime) && timeCol == -1)
+                // Allow for datetime (regular timestamp) or double (epoch time - bucketed)
+                if (dc.DataType == typeof(DateTime) && timeCol == -1 || dc.ColumnName.Equals("time\0", StringComparison.OrdinalIgnoreCase))
                     timeCol = dc.Ordinal;
                 else if (dc.DataType != typeof(string) && valCol == -1)
                     valCol = dc.Ordinal;
@@ -332,16 +333,23 @@ namespace TimeCacheNetworkServer
         {
             TimeCollection ret = new TimeCollection();
 
+            bool doubleTime = table.Columns[timeIndex].DataType != typeof(DateTime);
+
             foreach(DataRow dr in table.Rows)
             {
                 string key = dr.ItemArray[metIndex] as string;
                 if (!ret.SeriesData.ContainsKey(key))
                     ret.SeriesData[key] = new TimeSeries(key);
-                ret.SeriesData[key].Data.Add(new DataPointDouble() { SampleTime = (dr.ItemArray[timeIndex] as DateTime?).Value, Value = Convert.ToDouble(dr.ItemArray[valIndex]) });
+                if(!doubleTime)
+                    ret.SeriesData[key].Data.Add(new DataPointDouble() { SampleTime = (dr.ItemArray[timeIndex] as DateTime?).Value, Value = Convert.ToDouble(dr.ItemArray[valIndex]) });
+                else
+                    ret.SeriesData[key].Data.Add(new DataPointDouble() { SampleTime = _Epoch.AddSeconds(Convert.ToDouble(dr.ItemArray[timeIndex])), Value = Convert.ToDouble(dr.ItemArray[valIndex]) });
             }
 
             return ret;
         }
 
+        // TODO: Put in common lib
+        private static DateTime _Epoch = new DateTime(1970, 01, 01);
     }
 }

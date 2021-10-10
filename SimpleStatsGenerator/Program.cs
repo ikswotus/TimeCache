@@ -15,7 +15,7 @@ namespace SimpleStatsGenerator
     /// Inserted into: stats.timeseries_data_id
     /// 
     /// Modes are:
-    /// live - add new values each 1s
+    /// live - add new values, default is a bulk insert every 30s
     /// bulk - add values at 1s intervals for -1  hour to +1 hour based on current timestamp, then exit
     /// 
     /// 
@@ -70,9 +70,9 @@ namespace SimpleStatsGenerator
             "_total",
             "devenv",
             "statsgenerator",
-            "spectare_server-01",
-            "spectare_server-02",
-            "spectare_client"
+            "timecache_server-01",
+            "timecache_server-02",
+            "timecache_client-01"
         };
 
         private class DummyInstance
@@ -102,6 +102,32 @@ namespace SimpleStatsGenerator
                 di.Anchor = new Random((int)DateTime.UtcNow.Ticks).Next(1000, 20000);
 
                 return di;
+            }
+
+            public static List<DummyInstance> AllInstances()
+            {
+                Random r = new Random((int)DateTime.UtcNow.Ticks);
+                List<DummyInstance> dummies = new List<DummyInstance>();
+                for(int m = 0; m < _machines.Count; m++)
+                {
+                    for (int c = 0; c < _categories.Count; c++)
+                        for (int n = 0; n < _counters.Count; n++)
+                            for (int i = 0; i < _instances.Count; i++)
+                            {
+                                DummyInstance di = new DummyInstance();
+                                di.MachineID = (m + 1);
+                                di.Machine = _machines[m];
+                                di.CategoryID = (c + 1);
+                                di.Category = _categories[c];
+                                di.CounterID = (n + 1);
+                                di.Counter = _counters[n];
+                                di.InstanceID = (i + 1);
+                                di.Instance = _instances[i];
+                                di.Anchor = r.Next(1000, 20000);
+                                dummies.Add(di);
+                            }
+                }
+                return dummies;
             }
 
             public int Anchor = 0;
@@ -161,17 +187,20 @@ namespace SimpleStatsGenerator
                 }
 
                 // Construct a set of dummy instances to use for value generation.
-                List<DummyInstance> instances = new List<DummyInstance>(10);
-                
-                for (int i = 0; i< 10;i++)
-                {
-                    instances.Add(DummyInstance.GetInstance());
-                }
+                //List<DummyInstance> instances = new List<DummyInstance>(10);
 
+                //for (int i = 0; i< 10;i++)
+                //{
+                //    instances.Add(DummyInstance.GetInstance());
+                //}
 
+                List<DummyInstance> instances = DummyInstance.AllInstances();
 
+                TestData.TimeseriesDataIDDataTable tdt = new TestData.TimeseriesDataIDDataTable();
+                tdt.TableName = "stats.timeseries_data_id";
 
-                Console.WriteLine("connection opened");
+                Utils.Postgresql.TableManager tm = new Utils.Postgresql.TableManager(new Utils.Postgresql.ManagedBulkWriter(), args[0]);
+
 
                 //// Generate 2h of data at 1s intervals (7200 data points)
                 //// Go into the future so we can test querying through now().
@@ -182,11 +211,7 @@ namespace SimpleStatsGenerator
                     DateTime end = DateTime.UtcNow.AddHours(1 * hours);
                     Console.WriteLine("Adding values: " + start + " to " + end);
 
-                    TestData.TimeseriesDataIDDataTable tdt = new TestData.TimeseriesDataIDDataTable();
-                    tdt.TableName = "stats.timeseries_data_id";
-
-                    Utils.Postgresql.TableManager tm = new Utils.Postgresql.TableManager(new Utils.Postgresql.ManagedBulkWriter(), args[0]);
-
+                 
                     while (start < end)
                     {
                         foreach (DummyInstance di in instances)
@@ -195,7 +220,7 @@ namespace SimpleStatsGenerator
                         }
                         start = start.AddSeconds(1);
 
-                        if (tdt.Rows.Count > 1000)
+                        if (tdt.Rows.Count > 10000)
                         {
                             tm.BulkInsert(tdt, "stats.timeseries_data_id");
                             tdt = new TestData.TimeseriesDataIDDataTable();
@@ -210,27 +235,21 @@ namespace SimpleStatsGenerator
                 }
                 else
                 {
-                    using (Npgsql.NpgsqlConnection conn = new Npgsql.NpgsqlConnection(args[0]))
+                    while (true)
                     {
-                        conn.Open();
-                        while (true)
+                        for (int i = 0; i < 30; i++)
                         {
                             foreach (DummyInstance di in instances)
                             {
-                                Npgsql.NpgsqlCommand comm = new Npgsql.NpgsqlCommand(insertq, conn);
-                                comm.Parameters.AddWithValue("@sample_time", DateTime.UtcNow);
-                                comm.Parameters.AddWithValue("@machine_name", di.MachineID);
-                                comm.Parameters.AddWithValue("@current_value", (double)(_rand.Next(10000) + _rand.NextDouble()));
-                                comm.Parameters.AddWithValue("@category_name", di.CategoryID);
-                                comm.Parameters.AddWithValue("@counter_name", di.CounterID);
-                                comm.Parameters.AddWithValue("@instance_name", di.InstanceID);
-
-                                comm.ExecuteNonQuery();
+                                tdt.AddTimeseriesDataIDRow(DateTime.UtcNow, (double)(_rand.Next(di.Anchor) + _rand.NextDouble()), di.MachineID, di.CategoryID, di.CounterID, di.InstanceID);
                             }
                             Thread.Sleep(1000);
                         }
-                    }
 
+                        tm.BulkInsert(tdt, "stats.timeseries_data_id");
+                        tdt = new TestData.TimeseriesDataIDDataTable();
+                        tdt.TableName = "stats.timeseries_data_id";
+                    }
                 }
             }
             catch(Exception exc)

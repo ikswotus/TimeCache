@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SLog", "SLog\SLog.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeCacheService", "TimeCacheService\TimeCacheService.csproj", "{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenerateTestData", "GenerateTestData\GenerateTestData.csproj", "{7242D455-EE3F-4E77-9531-B2229F805720}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CFCBE90F-4E37-4453-AC26-B5C8D26EFE97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7242D455-EE3F-4E77-9531-B2229F805720}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7242D455-EE3F-4E77-9531-B2229F805720}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7242D455-EE3F-4E77-9531-B2229F805720}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7242D455-EE3F-4E77-9531-B2229F805720}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

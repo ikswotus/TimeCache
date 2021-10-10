@@ -499,7 +499,17 @@ namespace TimeCacheNetworkServer
                             if (query.AllowCache)
                             {
                                 if (!query.MetaOnly)
-                                    messageList.AddRange(qm.CachedQuery(query));
+                                {
+                                    IEnumerable<PGMessage> res = qm.CachedQuery(query);
+                                    if (response == null)
+                                    {
+                                        Error("Cached query returned null?");
+                                    }
+                                    else
+                                    {
+                                        messageList.AddRange(qm.CachedQuery(query));
+                                    }
+                                }
                                 else
                                     qm.CachedQuery(query, false);
                             }

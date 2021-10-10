@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="TestSeries" targetNamespace="http://tempuri.org/TestSeries.xsd" xmlns:mstns="http://tempuri.org/TestSeries.xsd" xmlns="http://tempuri.org/TestSeries.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:msprop="urn:schemas-microsoft-com:xml-msprop" attributeFormDefault="qualified" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:appinfo source="urn:schemas-microsoft-com:xml-msdatasource">
+      <DataSource DefaultConnectionIndex="0" FunctionsComponentName="QueriesTableAdapter" Modifier="AutoLayout, AnsiClass, Class, Public" SchemaSerializationMode="IncludeSchema" xmlns="urn:schemas-microsoft-com:xml-msdatasource">
+        <Connections />
+        <Tables />
+        <Sources />
+      </DataSource>
+    </xs:appinfo>
+  </xs:annotation>
+  <xs:element name="TestSeries" msdata:IsDataSet="true" msdata:UseCurrentLocale="true" msprop:EnableTableAdapterManager="true" msprop:Generator_DataSetName="TestSeries" msprop:Generator_UserDSName="TestSeries">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="SimpleTest" msprop:Generator_TableClassName="SimpleTestDataTable" msprop:Generator_TableVarName="tableSimpleTest" msprop:Generator_TablePropName="SimpleTest" msprop:Generator_RowDeletingName="SimpleTestRowDeleting" msprop:Generator_RowChangingName="SimpleTestRowChanging" msprop:Generator_RowEvHandlerName="SimpleTestRowChangeEventHandler" msprop:Generator_RowDeletedName="SimpleTestRowDeleted" msprop:Generator_UserTableName="SimpleTest" msprop:Generator_RowChangedName="SimpleTestRowChanged" msprop:Generator_RowEvArgName="SimpleTestRowChangeEvent" msprop:Generator_RowClassName="SimpleTestRow">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="MetricName" msprop:Generator_ColumnVarNameInTable="columnMetricName" msprop:Generator_ColumnPropNameInRow="MetricName" msprop:Generator_ColumnPropNameInTable="MetricNameColumn" msprop:Generator_UserColumnName="MetricName" type="xs:string" minOccurs="0" />
+              <xs:element name="Timestamp" msprop:Generator_ColumnVarNameInTable="columnTimestamp" msprop:Generator_ColumnPropNameInRow="Timestamp" msprop:Generator_ColumnPropNameInTable="TimestampColumn" msprop:Generator_UserColumnName="Timestamp" type="xs:dateTime" minOccurs="0" />
+              <xs:element name="Value" msprop:Generator_ColumnVarNameInTable="columnValue" msprop:Generator_ColumnPropNameInRow="Value" msprop:Generator_ColumnPropNameInTable="ValueColumn" msprop:Generator_UserColumnName="Value" type="xs:double" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
