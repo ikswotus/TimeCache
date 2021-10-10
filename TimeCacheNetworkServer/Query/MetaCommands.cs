@@ -84,12 +84,12 @@ namespace TimeCacheNetworkServer
                 string opInt = query.Options.ContainsKey("interval") ? query.Options["interval"] : "1h";
                 TimeSpan interval = ParsingUtils.ParseInterval(opInt);
 
+                bool separate = query.Options.ContainsKey("separate") ? bool.Parse(query.Options["separate"]) : false;
+
                 List<PGMessage> ret = new List<PGMessage>();
 
                 foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
-                    List<DataPointDouble> aggPoints = new List<DataPointDouble>();
-
                     IEnumerable<DataPointDouble> points = ts.Value.Data.OrderBy(c => c.SampleTime);
 
                     DataPointDouble start = points.First();
@@ -97,23 +97,44 @@ namespace TimeCacheNetworkServer
                     DateTime end = points.Last().SampleTime;
 
                     DateTime curr = start.SampleTime;
-                    while (curr < end)
+
+                    if (separate)
                     {
-                        DateTime intEnd = curr.Add(interval);
+                        int aggBucket = 0;
+                        while (curr < end)
+                        {
+                            DateTime intEnd = curr.Add(interval);
 
-                        DataPointDouble agg = new DataPointDouble() { SampleTime = curr };
-                        agg.Value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+                            double value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
 
-                        // want a flat line, so add 2 points
-                        aggPoints.Add(agg);
-                        aggPoints.Add(new DataPointDouble() { SampleTime = intEnd, Value = agg.Value });
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, curr, value }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, intEnd, value }));
 
-                        curr = curr.Add(interval);
+                            aggBucket++;
+                            curr = curr.Add(interval);
+                        }
                     }
-
-                    foreach (DataPointDouble agp in aggPoints)
+                    else
                     {
-                        ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + opInt, agp.SampleTime, agp.Value }));
+                        List<DataPointDouble> aggPoints = new List<DataPointDouble>();
+                        while (curr < end)
+                        {
+                            DateTime intEnd = curr.Add(interval);
+
+                            DataPointDouble agg = new DataPointDouble() { SampleTime = curr };
+                            agg.Value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+
+                            // want a flat line, so add 2 points
+                            aggPoints.Add(agg);
+                            aggPoints.Add(new DataPointDouble() { SampleTime = intEnd, Value = agg.Value });
+
+                            curr = curr.Add(interval);
+                        }
+
+                        foreach (DataPointDouble agp in aggPoints)
+                        {
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + opInt, agp.SampleTime, agp.Value }));
+                        }
                     }
                 }
 
@@ -122,8 +143,10 @@ namespace TimeCacheNetworkServer
             else if (string.Equals(query.Command, "stddev", StringComparison.OrdinalIgnoreCase))
             {
                 // TODO: merge with 'lines'? Similar behavior
-                // TODO: replace with postgresql stddev?
+                // TODO: replace with postgresql built-in stddev function?
                 int deviations = query.Options.ContainsKey("deviations") ? int.Parse(query.Options["deviations"]) : 2;
+
+                bool highlighOutliers = query.Options.ContainsKey("highlight") ? bool.Parse(query.Options["highlight"]) : false;
 
                 TimeCollection series = GetSeriesCollection(query, qm);
 
@@ -144,17 +167,35 @@ namespace TimeCacheNetworkServer
 
                     double high = avg + deviations * std;
                     double low = avg - deviations * std;
-                    string devKey = deviations.ToString() + "std";
 
-                    // line 1 = avg
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, start, avg }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, end, avg }));
-                    // line 2 +std
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, start, high }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, end, high }));
-                    // line 3 -std
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, start, low }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, end, low }));
+                    if (highlighOutliers)
+                    {
+                        // Collect all points outside:
+                        string k = "stddev_outlier_" + ts.Key;
+                        foreach (DataPointDouble dpd in points)
+                        {
+                            if(dpd.Value < low || dpd.Value > high)
+                            {
+                                ret.Add(Translator.BuildRowMessage(new object[] {k, dpd.SampleTime, dpd.Value }));
+                            }
+                        }
+
+                    }
+                    else // Show fixed lines only
+                    {
+
+                        string devKey = deviations.ToString() + "std";
+
+                        // line 1 = avg
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, start, avg }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, end, avg }));
+                        // line 2 +std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, start, high }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, end, high }));
+                        // line 3 -std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, start, low }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, end, low }));
+                    }
                 }
                 return ret;
             }
