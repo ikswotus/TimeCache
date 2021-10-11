@@ -828,6 +828,15 @@ namespace TimeCacheNetworkServer
 
                             return null;
                         }
+                        else if(status == CachedData.CacheStatus.FULL)
+                        {
+                            // If we're constantly refreshing, cache will be up to date (mostly)
+                            Debug("Normalized query will be satisfied by cache.");
+                            cache.CacheUsage.Add(DateTime.UtcNow);
+                            if (wantResults)
+                                return cache.Get(start, end, query.RemovedPredicates);
+                            return null;
+                        }
                         else
                         {
                             Critical("Cannot handle cache status: " + status.ToString());

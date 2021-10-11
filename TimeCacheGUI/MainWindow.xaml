@@ -29,7 +29,7 @@
                    CanUserAddRows="False"></DataGrid>
         <Button Grid.Row="2" Grid.Column="0" Name="CloseConnection" Click="CloseConnection_Click" IsEnabled="False">Close Conn.</Button>
         <Button Grid.Row="2" Grid.Column="1" Name="LogBtn" Click="LogBtn_Click"  >Logs</Button>
-        <CheckBox Grid.Row="2" Grid.Column="2" Name="FlushLogs" VerticalContentAlignment="Center" IsChecked="True">Flush Logs</CheckBox>
+        <CheckBox Grid.Row="2" Grid.Column="2" Name="FlushLogs" VerticalContentAlignment="Center" IsChecked="False">Flush Logs</CheckBox>
         <Button Grid.Row="2" Grid.Column="3" Name="CacheStats" Click="CacheStats_Click">Cache</Button>
         
         

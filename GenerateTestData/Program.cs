@@ -23,6 +23,32 @@ namespace GenerateTestData
             }
         }
 
+        public static void RandomWalk(string connString, int hours = 2)
+        {
+            DateTime start = DateTime.UtcNow.AddHours(-1 * hours);
+            DateTime end = DateTime.UtcNow.AddHours(hours);
+
+            TestSeries.SimpleTestDataTable tdt = new TestSeries.SimpleTestDataTable();
+            tdt.TableName = "test.simple_test";
+
+            Utils.Postgresql.TableManager tm = new Utils.Postgresql.TableManager(new Utils.Postgresql.ManagedBulkWriter(), connString);
+
+            Random r = new Random();
+
+            double value = r.NextDouble() * 1000;
+
+            while (start < end)
+            {
+                if (r.NextDouble() > 0.5)
+                    value = value + 1;
+                else
+                    value = value - 1;
+
+                start = start.AddSeconds(1);
+                tdt.AddSimpleTestRow("random_walk", start, value);
+            }
+            tm.BulkInsert(tdt, "test.simple_test");
+        }
         public static void CyclicalTrending(string connString, double trend, double anchor, double outlierProbability)
         {
 
@@ -135,8 +161,8 @@ namespace GenerateTestData
                 //}
                 //
                 //string test = args[1].ToLower();
-                string test = "cycle";
-                string connString = "Host=localhost;Port=5432;Database=stats;User ID=stats_user;Password=L5z$8322ions;";
+                string test = "walk";
+                string connString = "Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;";
 
 
                 if (String.Equals(test, "increase"))
@@ -147,7 +173,13 @@ namespace GenerateTestData
                 {
                     DeleteTest(connString);
 
-                    CyclicalTrending(connString, 1, 500.0, 0.001);
+                    CyclicalTrending(connString, 1, 500.0, 0.000);
+                }
+                else if(string.Equals(test, "walk"))
+                {
+                    DeleteTest(connString);
+
+                    RandomWalk(connString);
                 }
                 else
                 {

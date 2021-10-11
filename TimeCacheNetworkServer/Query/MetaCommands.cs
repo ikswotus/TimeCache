@@ -370,12 +370,12 @@ namespace TimeCacheNetworkServer
                         double newAvg = avg + ((points[i].Value - avg) / ptok);
                         // Standard deviation
                         m = m + (points[i].Value - avg) * (points[i].Value - newAvg);
-                        double std = Math.Sqrt(m / ptok-1);
+                        double std = Math.Sqrt(m / i - 1);
+
+                        avg = newAvg;
 
                         double high = avg + deviations * std;
                         double low = avg - deviations * std;
-
-                        avg = newAvg;
 
                         string devKey = deviations.ToString() + "std";
 
@@ -393,7 +393,68 @@ namespace TimeCacheNetworkServer
                 }
                 return ret;
             }
+            else if (string.Equals(query.Command, "ema", StringComparison.OrdinalIgnoreCase))
+            {
 
+                TimeCollection series = GetSeriesCollection(query, qm);
+                List<PGMessage> ret = new List<PGMessage>();
+
+                /*
+                 * Exponential Moving Average
+                 * https://en.wikipedia.org/wiki/Moving_average
+                 */
+                int deviations = query.Options.ContainsKey("deviations") ? int.Parse(query.Options["deviations"]) : 2;
+
+                int ptok = query.Options.ContainsKey("points") ? int.Parse(query.Options["points"]) : 5;
+                if (ptok < 5)
+                    ptok = 5;
+
+                double smooth = query.Options.ContainsKey("smooth") ? double.Parse(query.Options["smooth"]) : 0.9;
+
+                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+                {
+                    List<DataPointDouble> points = ts.Value.Data.OrderBy(c => c.SampleTime).ToList();
+                    if (points.Count < 5)
+                        continue;
+
+                    // Initialize our average to the first 5 values
+                    double avg = 0;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        avg += points[i].Value;
+                    }
+                    avg = avg / 5;
+
+                    double ema = avg;
+                    double emvar = 0;
+                    
+                    for (int i = ptok; i < points.Count(); i++)
+                    {
+                        double delta = points[i].Value - ema;
+                        ema = ema + smooth * delta;
+                        emvar = (1 - smooth) * (emvar + smooth * Math.Pow(delta, 2));
+
+                        // line 1 = avg
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, points[i].SampleTime, ema }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, points[i].SampleTime, ema }));
+
+                        double sq = Math.Sqrt(emvar);
+                        double high = ema + deviations * sq;
+                        double low = ema - deviations * sq;
+
+                        string devKey = deviations.ToString() + "std";
+
+                        // line 2 +std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, points[i].SampleTime, high }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, points[i].SampleTime, high }));
+                        // line 3 -std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, points[i].SampleTime, low }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, points[i].SampleTime, low }));
+
+                    }
+                }
+                return ret;
+            }
             //else if(string.Equals(query.Command, "cluster", StringComparison.OrdinalIgnoreCase))
             //{
             //    int k = query.Options.ContainsKey("k") ? int.Parse(query.Options["k"]) : 3;
