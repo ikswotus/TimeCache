@@ -11,6 +11,23 @@ namespace TimeCacheNetworkServer.Maths
     /// </summary>
     public class Algorithms
     {
+        public static double SumSquares(double avg, List<DataPointDouble> values, int n)
+        {
+            if (values == null || !values.Any())
+                return 0.0;
+            double sum = 0;
+            for(int i =0; i< n; i++)
+            {
+                sum += Math.Pow(values[i].Value - avg, 2);
+            }
+            return sum;
+        }
+        public static double SumSquares(double avg, IEnumerable<DataPointDouble> values)
+        {
+            if (values == null || !values.Any())
+                return 0.0;
+            return values.Sum(v => Math.Pow(v.Value - avg, 2));
+        }
         public static double StandardDeviation(double avg, IEnumerable<DataPointDouble> values)
         {
             if (values == null)

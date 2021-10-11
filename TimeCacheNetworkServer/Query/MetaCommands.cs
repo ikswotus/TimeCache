@@ -148,9 +148,12 @@ namespace TimeCacheNetworkServer
 
                 bool highlighOutliers = query.Options.ContainsKey("highlight") ? bool.Parse(query.Options["highlight"]) : false;
 
+                bool useInterval = query.Options.ContainsKey("interval"); // Rolling STDDEV
+
                 TimeCollection series = GetSeriesCollection(query, qm);
 
                 List<PGMessage> ret = new List<PGMessage>();
+
                 foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
                 {
                     // Skip for now, TODO: Log 
@@ -161,40 +164,59 @@ namespace TimeCacheNetworkServer
 
                     DateTime start = points.First().SampleTime;
                     DateTime end = points.Last().SampleTime;
-                    double avg = points.Average(v => v.Value);
-                    double std = Maths.Algorithms.StandardDeviation(avg, points);
 
+                    TimeSpan interval = query.Options.ContainsKey("interval") ? ParsingUtils.ParseInterval(query.Options["interval"])
+                        : (end - start);
 
-                    double high = avg + deviations * std;
-                    double low = avg - deviations * std;
+                    DataPointDouble firstPoint = points.First();
 
-                    if (highlighOutliers)
+                    DateTime curr = start;
+
+                    while (curr < end)
                     {
-                        // Collect all points outside:
-                        string k = "stddev_outlier_" + ts.Key;
-                        foreach (DataPointDouble dpd in points)
+                        DateTime intEnd = curr.Add(interval);
+                        IEnumerable<DataPointDouble> inRange = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd);
+
+                        if (!inRange.Any()) //TODO:  count < 2?
+                            continue;
+
+                        double avg = inRange.Average(v => v.Value);
+                        double std = Maths.Algorithms.StandardDeviation(avg, inRange);
+
+
+                        double high = avg + deviations * std;
+                        double low = avg - deviations * std;
+
+                        if (highlighOutliers)
                         {
-                            if(dpd.Value < low || dpd.Value > high)
+                            // Collect all points outside:
+                            string k = "stddev_outlier_" + ts.Key;
+                            foreach (DataPointDouble dpd in inRange)
                             {
-                                ret.Add(Translator.BuildRowMessage(new object[] {k, dpd.SampleTime, dpd.Value }));
+                                if (dpd.Value < low || dpd.Value > high)
+                                {
+                                    ret.Add(Translator.BuildRowMessage(new object[] { k, dpd.SampleTime, dpd.Value }));
+                                }
                             }
+
+                        }
+                        else // Show fixed lines only
+                        {
+
+                            string devKey = deviations.ToString() + "std";
+
+                            // line 1 = avg
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, curr, avg }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, intEnd, avg }));
+                            // line 2 +std
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, curr, high }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, intEnd, high }));
+                            // line 3 -std
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, curr, low }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, intEnd, low }));
                         }
 
-                    }
-                    else // Show fixed lines only
-                    {
-
-                        string devKey = deviations.ToString() + "std";
-
-                        // line 1 = avg
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, start, avg }));
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, end, avg }));
-                        // line 2 +std
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, start, high }));
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, end, high }));
-                        // line 3 -std
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, start, low }));
-                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, end, low }));
+                        curr = curr.Add(interval);
                     }
                 }
                 return ret;
@@ -267,7 +289,7 @@ namespace TimeCacheNetworkServer
                     // Take the last X points in reverse and project them into the future, adjusting the value based on our regression.
                     DataPointDouble last = points.Last();
                     DateTime start = last.SampleTime.Add(interval.Negate());
-                    foreach(DataPointDouble ppoint in points.Where( c => c.SampleTime > start).Reverse())
+                    foreach (DataPointDouble ppoint in points.Where(c => c.SampleTime > start).Reverse())
                     {
                         // TODO: Need units for slope, dont force minutes here...
                         double minutes = (last.SampleTime - ppoint.SampleTime).TotalMinutes;
@@ -277,9 +299,9 @@ namespace TimeCacheNetworkServer
                     }
                 }
 
-                    return ret;
+                return ret;
             }
-            else if(string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase))
             {
                 TimeCollection series = GetSeriesCollection(query, qm);
                 List<PGMessage> ret = new List<PGMessage>();
@@ -314,7 +336,63 @@ namespace TimeCacheNetworkServer
 
                 return ret;
             }
+            else if (string.Equals(query.Command, "rolling", StringComparison.OrdinalIgnoreCase))
+            {
+                /* Rolling average + std
+                 * Welfords Algorithm
+                 * https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                 */
+                int deviations = query.Options.ContainsKey("deviations") ? int.Parse(query.Options["deviations"]) : 2;
 
+                int ptok = query.Options.ContainsKey("points") ? int.Parse(query.Options["points"]) : 5;
+                if (ptok < 5)
+                    ptok = 5;
+                //bool highlighOutliers = query.Options.ContainsKey("highlight") ? bool.Parse(query.Options["highlight"]) : false;
+                
+                TimeCollection series = GetSeriesCollection(query, qm);
+
+                List<PGMessage> ret = new List<PGMessage>();
+
+                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+                {
+                    List<DataPointDouble> points = ts.Value.Data.OrderBy(c => c.SampleTime).ToList();
+                    if (points.Count < 5)
+                        continue;
+                    double avg = 0;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        avg += points[i].Value;
+                    }
+                    avg = avg / 5;
+                    double m = Maths.Algorithms.SumSquares(avg, points, ptok);
+                    for (int i = ptok; i < points.Count(); i++)
+                    {
+                        double newAvg = avg + ((points[i].Value - avg) / ptok);
+                        // Standard deviation
+                        m = m + (points[i].Value - avg) * (points[i].Value - newAvg);
+                        double std = Math.Sqrt(m / ptok-1);
+
+                        double high = avg + deviations * std;
+                        double low = avg - deviations * std;
+
+                        avg = newAvg;
+
+                        string devKey = deviations.ToString() + "std";
+
+                        // line 1 = avg
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, points[i].SampleTime, avg }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key, points[i].SampleTime, avg }));
+                        // line 2 +std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, points[i].SampleTime, high }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_+" + devKey, points[i].SampleTime, high }));
+                        // line 3 -std
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, points[i].SampleTime, low }));
+                        ret.Add(Translator.BuildRowMessage(new object[] { "avg_" + ts.Key + "_-" + devKey, points[i].SampleTime, low }));
+
+                    }
+                }
+                return ret;
+            }
 
             //else if(string.Equals(query.Command, "cluster", StringComparison.OrdinalIgnoreCase))
             //{
@@ -326,7 +404,7 @@ namespace TimeCacheNetworkServer
             //    foreach(KeyValuePair<string, TimeSeries> ts in series.SeriesData)
             //    {
             //        List<DataPointDouble> points = ts.Value.Data.OrderBy(d => d.SampleTime).ToList();
-// CLUSTER1D
+            // CLUSTER1D
             //    }
             //}
 
@@ -353,7 +431,7 @@ namespace TimeCacheNetworkServer
             int valCol = -1;
             int metCol = -1;
             // TODO: Determine based on column name, not type?
-            foreach(DataColumn dc in table.Columns)
+            foreach (DataColumn dc in table.Columns)
             {
                 // Allow for datetime (regular timestamp) or double (epoch time - bucketed)
                 if (dc.DataType == typeof(DateTime) && timeCol == -1 || dc.ColumnName.Equals("time\0", StringComparison.OrdinalIgnoreCase))
@@ -362,7 +440,7 @@ namespace TimeCacheNetworkServer
                     valCol = dc.Ordinal;
                 else if (dc.DataType == typeof(string) && metCol == -1)
                     metCol = dc.Ordinal;
-                
+
                 if (timeCol != -1 && valCol != -1 && metCol != -1)
                     break;
             }
@@ -376,12 +454,12 @@ namespace TimeCacheNetworkServer
 
             bool doubleTime = table.Columns[timeIndex].DataType != typeof(DateTime);
 
-            foreach(DataRow dr in table.Rows)
+            foreach (DataRow dr in table.Rows)
             {
                 string key = dr.ItemArray[metIndex] as string;
                 if (!ret.SeriesData.ContainsKey(key))
                     ret.SeriesData[key] = new TimeSeries(key);
-                if(!doubleTime)
+                if (!doubleTime)
                     ret.SeriesData[key].Data.Add(new DataPointDouble() { SampleTime = (dr.ItemArray[timeIndex] as DateTime?).Value, Value = Convert.ToDouble(dr.ItemArray[valIndex]) });
                 else
                     ret.SeriesData[key].Data.Add(new DataPointDouble() { SampleTime = _Epoch.AddSeconds(Convert.ToDouble(dr.ItemArray[timeIndex])), Value = Convert.ToDouble(dr.ItemArray[valIndex]) });

@@ -21,7 +21,8 @@ namespace TimeCacheNetworkServer
 
                     if (String.Equals(address, "127.0.0.1") && ignoreLocal)
                         continue;
-                    return uProp.Address;
+                    else if(address.StartsWith("192.168.1."))
+                        return uProp.Address;
                 }
             }
             return null;
