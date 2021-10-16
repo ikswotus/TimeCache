@@ -57,7 +57,7 @@ The returned series will be named after the original metric, and include the num
 Average of points in sub-intervals. Shows the average value over small intervals of time within a window.
 
 ##### Options
-* Interval := Text. Default 1h. Determines how wide the buckets should be. Supports w=weeks,d=days,h=hours,m=minutes,s=seconds. Should not be provided with quotes or extra spaces
+* Interval := string. Default 1h. Determines how wide the buckets should be. Supports w=weeks,d=days,h=hours,m=minutes,s=seconds. Should not be provided with quotes or extra spaces
 * Separate := Boolean. Default is false. Allows buckets to be returned as separate lines
 
 ![AggBucket](images/_demo_timecache_aggbuckets.png)
@@ -71,6 +71,15 @@ Standard deviation bounds. Draws fixed lines representing the average, avg + Nxs
 This example uses 2 commands, one to draw the box, and one to highlight outliers. Note: Uses several overrides within grafana for displaying a nicer view:
 
 ![STDDEV](images/_demo_timecache_stddev.png)
+
+### LINES
+Simple horizontal lines. 
+
+#### Options
+* 'avg|min|max' := Boolean - Allows limiting lines to only min,max, or avg. By default, all 3 will be enabled unless 'fixed' is specified
+* 'fixed' := string - Draws a horizontal line at the specified value. Supports format specifier postfix 'k|m|b' thousands/millions/billions for shorthand (fixed=4b is equivalent to fixed=4000000000)
+
+![LINES](images/_demo_timecache_lines.png)
 
 ----------------------------
 # Decomposition
