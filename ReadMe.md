@@ -42,6 +42,15 @@ Usage Notes: (These will be demonstrated in example graphs below..)
 
 ### Supported commands
 
+### Offset
+Time-shifts data to overlay it onto current/newer data. Allows an easier comparison of recent data to older data.
+
+
+#### Options
+* Interval := string - Timespan to shift data. Default is '1h'
+
+![Offset](images/_demo_timecache_offset.png)
+
 #### Regress
 Simple linear regression. Plots a straight line. The metric name will include the slope of the line (ie change in y value per x unit)
 
