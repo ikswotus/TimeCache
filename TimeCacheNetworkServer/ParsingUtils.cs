@@ -169,8 +169,12 @@ namespace TimeCacheNetworkServer
                 for (int i = 0; i <= di; i++)
                     res += (int)(numeric[i] - '0') * (int)Math.Pow(10, (di - i));
 
-                if (di + 1 == numeric.Length)
-                    throw new Exception("No format specifier");// TODO: Assume something?
+            if (di + 1 == numeric.Length)
+            {
+                return res;
+                //throw new Exception("No format specifier");// TODO: Assume something?
+            }
+
                 string nt = numeric.Substring(di + 1).ToLower().Trim();
 
                 switch(nt)
