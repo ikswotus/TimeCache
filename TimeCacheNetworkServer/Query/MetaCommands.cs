@@ -495,7 +495,7 @@ namespace TimeCacheNetworkServer
             foreach (DataColumn dc in table.Columns)
             {
                 // Allow for datetime (regular timestamp) or double (epoch time - bucketed)
-                if (dc.DataType == typeof(DateTime) && timeCol == -1 || dc.ColumnName.Equals("time\0", StringComparison.OrdinalIgnoreCase))
+                if (dc.DataType == typeof(DateTime) && timeCol == -1 || dc.ColumnName.Equals("time", StringComparison.OrdinalIgnoreCase) || dc.ColumnName.Equals("time\0", StringComparison.OrdinalIgnoreCase))
                     timeCol = dc.Ordinal;
                 else if (dc.DataType != typeof(string) && valCol == -1)
                     valCol = dc.Ordinal;
