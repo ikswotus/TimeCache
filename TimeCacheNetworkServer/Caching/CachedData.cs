@@ -44,7 +44,7 @@ namespace TimeCacheNetworkServer.Caching
 
             foreach (CachedRow cr in CurrentData)
             {
-                cr.TranslatedMessage.Dispose();
+                cr.TranslatedMessage.Release();
             }
 
             CurrentData.Clear();
@@ -272,7 +272,7 @@ namespace TimeCacheNetworkServer.Caching
                         // else overlap - remove the old data
                         CachedRow cr = CurrentData[i];
                         CurrentData.RemoveAt(i);
-                        cr.TranslatedMessage.Dispose();
+                        cr.TranslatedMessage.Release();
                         Debug("Removing overlap date: " + start.ToString("o"));
                         removed = true;
                     }

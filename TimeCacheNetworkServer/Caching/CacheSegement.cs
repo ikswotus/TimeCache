@@ -28,7 +28,7 @@ namespace TimeCacheNetworkServer.Caching
 
             foreach (CachedRow cr in CurrentData)
             {
-                cr.TranslatedMessage.Dispose();
+                cr.TranslatedMessage.Release();
             }
 
             CurrentData.Clear();

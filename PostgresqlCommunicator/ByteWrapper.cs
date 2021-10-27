@@ -130,6 +130,39 @@ namespace PostgresqlCommunicator
             Buffer[_currentPosition++] = data;
         }
 
+
+        /// <summary>
+        /// Write a 4-byte integer into the buffer
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
+        public void Write(int value)
+        {
+            if(_currentPosition + 4 >= Buffer.Length)
+                throw new Exception("Not enough space in buffer");
+
+            Buffer[_currentPosition++] = (byte)((value & 0xFF000000) >> 24);
+            Buffer[_currentPosition++] = (byte)((value & 0x00FF0000) >> 16);
+            Buffer[_currentPosition++] = (byte)((value & 0x0000FF00) >> 8);
+            Buffer[_currentPosition++] = (byte)(value & 0x000000FF);
+        }
+
+        /// <summary>
+        /// Write a 2-byte integer into the buffer
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="index"></param>
+        /// <param name="value"></param>
+        public void Write(short value)
+        {
+            if (_currentPosition + 2 >= Buffer.Length)
+                throw new Exception("Not enough space in buffer");
+
+            Buffer[_currentPosition++] = (byte)((value & 0xFF00) >> 8);
+            Buffer[_currentPosition++] = (byte)(value & 0x00FF);
+        }
+
         /// <summary>
         /// position tracker - used for determining how much data has been written
         /// to our buffer.

@@ -349,7 +349,7 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(_okBytes);
         }
     }
 

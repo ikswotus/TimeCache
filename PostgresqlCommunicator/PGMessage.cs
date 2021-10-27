@@ -47,7 +47,7 @@ namespace PostgresqlCommunicator
         /// <summary>
         /// Returns the message as a byte[]
         /// 
-        /// TODO: Avoid this and use helpers that write to existing buffers
+        /// TODO: Avoid this whenver possible and use the WriteTo() methods
         /// </summary>
         /// <returns></returns>
         public byte[] GetMessagePayload()
