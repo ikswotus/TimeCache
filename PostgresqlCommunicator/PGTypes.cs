@@ -20,7 +20,9 @@ namespace PostgresqlCommunicator
         public const byte DataRow = 0x44;
         public const byte Execute = 0x45;
         public const byte BackendKeyData = 0x4b;
-       
+
+        public const byte ErrorResponse = 0x45;
+
         public const byte Parse = 0x50;
         public const byte SimpleQuery = 0x51;
         public const byte AuthenticationRequest = 0x52;
@@ -30,6 +32,7 @@ namespace PostgresqlCommunicator
         public const byte ReadyForQuery = 0x5a;
 
         public const byte PasswordMessage = 0x70;
+        public const byte SASLInitialResponse = 0x70;
 
         public static string GetType(byte b)
         {
@@ -70,6 +73,15 @@ namespace PostgresqlCommunicator
                     return "UNKNOWN::" + b.ToString("X2");
             }
         }
+    }
+
+    public abstract class AuthenticationTypes
+    {
+        public const int Success = 0;
+
+        public const int SASLRequest = 10;
+        public const int SASLContinue = 11;
+        public const int SASLComplete = 12;
     }
 
 }

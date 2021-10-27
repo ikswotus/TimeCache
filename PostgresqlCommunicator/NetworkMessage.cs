@@ -9,7 +9,11 @@ using System.Net.Sockets;
 namespace PostgresqlCommunicator
 {
     /// <summary>
-    /// Translated PGMessages into byte[] for sending over the network.
+    /// A NetworkMessage is a wrapper around a poolable byte container
+    /// to be used when there is a large number of messages to send.
+    /// 
+    /// This is intended for data messages, where we may have a large number of messages to send
+    /// and want to avoid having to allocate a large number of byte[]
     /// </summary>
     public class NetworkMessage
     {

@@ -1,0 +1,7 @@
+
+Postgresql messaging document:
+https://www.postgresql.org/docs/14/protocol-flow.html
+
+SASL - SCRAM-SHA-256
+https://datatracker.ietf.org/doc/html/rfc7677
+https://datatracker.ietf.org/doc/html/rfc5802

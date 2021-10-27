@@ -169,6 +169,14 @@ namespace PostgresqlCommunicator
 
         private static DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public static Type ReverseOIDLookup(int oid)
+        {
+            if (!ReverseTypeOIDMap.ContainsKey(oid))
+            {
+                throw new Exception("Unknown oid: " + oid);
+            }
+            return ReverseTypeOIDMap[oid];
+        }
 
         //public static Type GetTypeFromOID(int oid)
         //{
@@ -189,6 +197,21 @@ namespace PostgresqlCommunicator
 
             //TESTING
             {typeof(Decimal), 701 }
+        };
+
+        /// <summary>
+        /// Pairs integer oid to c# column type
+        /// </summary>
+        public static Dictionary<int,Type> ReverseTypeOIDMap = new Dictionary<int,Type>()
+        {
+            {25, typeof(String) },
+            {701, typeof(Double)},
+            {23, typeof(int)}, 
+            {1184, typeof(DateTime)},
+            {1700, typeof(float) },
+
+            //TESTING
+           // {typeof(Decimal), 701 }
         };
 
         /// <summary>
