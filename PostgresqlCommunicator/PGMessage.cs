@@ -96,6 +96,10 @@ namespace PostgresqlCommunicator
         /// <returns></returns>
         public abstract byte[] GetMessageBytes();
 
+        /// <summary>
+        /// Writes the message to the destination bytewrapper
+        /// </summary>
+        /// <param name="dest"></param>
         public void WriteTo(ByteWrapper dest)
         {
             dest.Write(MessageType);
@@ -114,12 +118,20 @@ namespace PostgresqlCommunicator
         /// <param name="dest"></param>
         protected abstract void DoWriteTo(ByteWrapper dest);
 
+        /// <summary>
+        /// Checks to see if a string has a null-terminating character
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns>The string, or a new string with an appended null terminator</returns>
         protected static string EnsureNullTerminated(string s)
         {
             if (s == null || s.Length == 0)
                 return _nullTermString;
             if (s[s.Length - 1] == '\0')
                 return s;
+            // Ugh, this is an unfortunate copy
+            // It may be better to never call this, and instead handle it during
+            // the write
             return s + _nullTermString;
         }
 
@@ -143,9 +155,21 @@ namespace PostgresqlCommunicator
             return GetStringBytes(s, Encoding.UTF8);
         }
 
-            public static byte[] GetStringBytes(string s, Encoding encoding)
+        public static byte[] GetStringBytes(string s, Encoding encoding)
         {
             return encoding.GetBytes(EnsureNullTerminated(s));
+        }
+
+        public static byte[] GetStringBytes2(string s)
+        {
+            byte[] sb =  Encoding.UTF8.GetBytes(s);
+            if (sb[s.Length - 1] == 0x00)
+                return sb;
+
+            byte[] b = new byte[s.Length + 1];
+            Array.Copy(sb, b, sb.Length);
+            b[s.Length] = 0x00;
+            return b;
         }
 
         protected static string _nullTermString = "\0";
