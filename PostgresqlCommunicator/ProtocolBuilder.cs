@@ -88,7 +88,7 @@ namespace PostgresqlCommunicator
         /// <returns></returns>
         public static byte[] BuildResponseMessage(PGMessage message)
         {
-            long expected =  5 + message.GetLength();
+            long expected =  1 + message.GetLength();
             byte[] ret = new byte[expected];
 
 
@@ -96,7 +96,7 @@ namespace PostgresqlCommunicator
 
             ret[0] = message.MessageType;
 
-            int encodedLength = message.GetLength() + 4;
+            int encodedLength = message.GetLength();
 
             ret[1] = (byte)((encodedLength & 0xFF000000) >> 24);
             ret[2] = (byte)((encodedLength & 0x00FF0000) >> 16);

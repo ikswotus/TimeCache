@@ -46,6 +46,11 @@ namespace PostgresqlCommunicator
 
         }
 
+        public void Clear()
+        {
+            _currentPosition = 0;
+        }
+
         /// <summary>
         /// Private constructor - Only the static Get() should
         /// be used to initialize a new ByteWrapper object

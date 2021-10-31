@@ -49,6 +49,22 @@ namespace TimeCacheNetworkServer
             _port = port;
         }
 
+        public NetworkServer(IPAddress pgIP, int port, int pgPort) 
+            : this (null, port, new SLog.SLogger("TimeCacheNetworkServer"))
+        {
+            _postgresPort = pgPort;
+            _postgresIP = pgIP;
+            _connectionString = null;
+            _port = port;
+        }
+
+        private readonly int _postgresPort = 5432;
+
+        /// <summary>
+        /// IP of actual postgresql server
+        /// </summary>
+        private readonly IPAddress _postgresIP = null;
+
         /// <summary>
         /// Port listening on
         /// </summary>
@@ -246,35 +262,52 @@ namespace TimeCacheNetworkServer
 
                 StartupMessage sm = StartupMessage.ParseMessage(buffer, 0);
 
+                long sent = 0;
+                if (_postgresIP != null)
+                {
 
-                AuthenticationMD5Password am = new AuthenticationMD5Password();
-                Random r = new Random();
-                r.NextBytes(am.Salt);
+                    Socket serverSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-                byte[] authRequest = am.GetMessagePayload();
-                s.Send(authRequest);
+                    IPEndPoint pgEndPoint = new IPEndPoint(_postgresIP, _postgresPort);
 
-                // TODO: Perform some actual password validation to ensure authenticity
+                    serverSock.Connect(pgEndPoint);
 
-                bytes = s.Receive(buffer);
 
-                AuthenticationMD5Response amr = AuthenticationMD5Response.FromBytes(buffer, 0);
+                    PostgresqlCommunicator.Auth.SCRAM.ForwardAuthenticate(serverSock, s, sm, null);
 
-                List<PGMessage> response = new List<PGMessage>()
+                }
+                else // Dummy auth
+                {
+                    AuthenticationMD5Password am = new AuthenticationMD5Password();
+                    Random r = new Random();
+                    r.NextBytes(am.Salt);
+
+                    byte[] authRequest = am.GetMessagePayload();
+                    s.Send(authRequest);
+
+                    // TODO: Perform some actual password validation to ensure authenticity
+
+                    bytes = s.Receive(buffer);
+
+                    AuthenticationMD5Response amr = AuthenticationMD5Response.FromBytes(buffer, 0);
+
+                    List<PGMessage> response = new List<PGMessage>()
                     {
                         new AuthenticationOK(),
                         new ReadyForQuery()
                     };
 
-                // Send 
-                Debug("sending authok + rfq");
-                NetworkMessage nm = ProtocolBuilder.BuildResponseMessage(response);
-                //byte[] complete = ProtocolBuilder.BuildResponse(response);
-                long sent = nm.Send(s);
+                    // Send 
+                    Debug("sending authok + rfq");
+                    NetworkMessage nm = ProtocolBuilder.BuildResponseMessage(response);
+                    //byte[] complete = ProtocolBuilder.BuildResponse(response);
+                    sent = nm.Send(s);
 
-                VTrace("sent: " + sent);
-                // Connected and Authenticated
-                // Now wait and respond to queries.
+                    VTrace("sent: " + sent);
+                    // Connected and Authenticated
+                    // Now wait and respond to queries.
+                }
+
 
                 #endregion Startup
 
@@ -501,7 +534,7 @@ namespace TimeCacheNetworkServer
                                 if (!query.MetaOnly)
                                 {
                                     IEnumerable<PGMessage> res = qm.CachedQuery(query);
-                                    if (response == null)
+                                    if (res == null)
                                     {
                                         Error("Cached query returned null?");
                                     }
@@ -586,6 +619,9 @@ namespace TimeCacheNetworkServer
             catch (Exception exc)
             {
                 Error("Failure in socket handler: " + exc);
+#if DEBUG
+                Console.WriteLine("Failure in socket handler: " + exc);
+#endif
             }
             finally
             {

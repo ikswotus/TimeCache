@@ -118,6 +118,7 @@ namespace PostgresqlCommunicator
         /// <param name="dest"></param>
         protected abstract void DoWriteTo(ByteWrapper dest);
 
+
         /// <summary>
         /// Checks to see if a string has a null-terminating character
         /// </summary>
@@ -163,6 +164,8 @@ namespace PostgresqlCommunicator
         public static byte[] GetStringBytes2(string s)
         {
             byte[] sb =  Encoding.UTF8.GetBytes(s);
+            if (sb.Length == 0)
+                return _empty;
             if (sb[s.Length - 1] == 0x00)
                 return sb;
 
@@ -171,6 +174,9 @@ namespace PostgresqlCommunicator
             b[s.Length] = 0x00;
             return b;
         }
+
+        protected static byte[] _empty = new byte[1] { 0x00 };
+        protected static byte _nullByte = 0x00;
 
         protected static string _nullTermString = "\0";
     }

@@ -1,0 +1,17 @@
+NetworkServer
+-> Actual authentication using grafana options
+-> Error message propagation
+
+Caching
+-> Segmentation
+-> Assume 'ordered' data (option)
+
+Meta-Commands
+-> Clustering (KMeans++)
+
+Misc
+-> Query parsing (Not regex...)
+-> Public data sets for examples/testing
+
+Cleanup
+-> Message Refactoring (Not implemented methods)

@@ -46,5 +46,29 @@ namespace TimeCacheNetworkServer.Properties {
                 this["QueriesToCache"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("localhost")]
+        public string DatabaseIP {
+            get {
+                return ((string)(this["DatabaseIP"]));
+            }
+            set {
+                this["DatabaseIP"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5432")]
+        public int DatabasePort {
+            get {
+                return ((int)(this["DatabasePort"]));
+            }
+            set {
+                this["DatabasePort"] = value;
+            }
+        }
     }
 }

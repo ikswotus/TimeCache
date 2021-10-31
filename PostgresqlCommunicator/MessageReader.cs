@@ -74,7 +74,7 @@ namespace PostgresqlCommunicator
             }
 
             int consumed = 0;
-            PGMessage message = MessageParser.ReadMessage(_buffer, _bufferPosition, _remainingBufferBytes, out consumed, true);
+            PGMessage message = MessageParser.ReadMessage(_buffer, _bufferPosition, _remainingBufferBytes, out consumed, typeof(UnhandledMessage), true);
 
             int readBytes = (consumed - _bufferPosition);
             if (_remainingBufferBytes < readBytes)

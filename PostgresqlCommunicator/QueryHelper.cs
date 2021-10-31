@@ -26,9 +26,13 @@ namespace PostgresqlCommunicator
 
             SimpleQuery sq = new SimpleQuery(query);
 
-            byte[] b = sq.GetMessageBytes();
+            ByteWrapper bw = ByteWrapper.Get(65535);
 
-            int sent = s.Send(b);
+            sq.WriteTo(bw);
+
+            //byte[] b = sq.GetMessageBytes();
+
+            int sent = bw.Send(s);
 
             MessageReader mr = new MessageReader(s);
 
@@ -43,7 +47,7 @@ namespace PostgresqlCommunicator
             while(mess != null)
             {
                // Console.WriteLine("Recieved: " + mess.GetType().ToString());
-                mess = mr.ReadMessage();
+               
                 if(mess is CommandCompletion)
                 {
                     Console.WriteLine("Command completed");
@@ -64,6 +68,8 @@ namespace PostgresqlCommunicator
                     ret[i] = drm.Fields[i].As(Translator.ReverseOIDLookup(rd.Fields[i].TypeOID));
                 }
                 results.Rows.Add(ret);
+
+                mess = mr.ReadMessage();
             }
             ReadyForQuery rfq = mr.ReadMessage<ReadyForQuery>();
             Console.WriteLine("Ready for query");

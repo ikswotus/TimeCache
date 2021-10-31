@@ -21,7 +21,7 @@ namespace PostgresqlCommunicator
         /// <param name="buffLength"></param>
         /// <param name="readBytes">read position</param>
         /// <returns></returns>
-        public static PGMessage ReadMessage(byte[] buffer, int index, int buffLength, out int readPosition, bool allowUnknown = false)
+        public static PGMessage ReadMessage(byte[] buffer, int index, int buffLength, out int readPosition, Type expectedType, bool allowUnknown = false )
         {
             // Expect a type byte and a length
             if (buffer == null || buffer.Length - index < 5 || buffLength < 5)
@@ -37,6 +37,9 @@ namespace PostgresqlCommunicator
             readPosition = index + length + 1;
 
             int payloadLength = length - 4;
+
+
+
 
             switch (mType)
             {
@@ -56,6 +59,12 @@ namespace PostgresqlCommunicator
                     ErrorResponseMessage erm = new ErrorResponseMessage();
                     erm.ErrorText = Encoding.ASCII.GetString(buffer, buffPosition, payloadLength);
                     return erm;
+                case PGTypes.SimpleQuery:
+                    return SimpleQuery.FromBytes(buffer, buffPosition, payloadLength);
+                case PGTypes.SASLInitialResponse:
+                    if(expectedType == typeof(AuthenticationSASLInitialResponse))
+                        return AuthenticationSASLInitialResponse.FromBuffer(buffer, buffPosition, payloadLength);
+                    return AuthenticationSASLResponse.FromBuffer(buffer, buffPosition, payloadLength);
                 case PGTypes.AuthenticationRequest:
                     // Need type
                     int authType = ReadInt(buffer, ref buffPosition);
@@ -102,7 +111,7 @@ namespace PostgresqlCommunicator
                         AuthenticationSASLContinue ac = new AuthenticationSASLContinue();
 
 
-                        ac.Parse(buffer, buffPosition);
+                        ac.Parse(buffer, buffPosition, payloadLength);
 
 
                         return ac;
@@ -111,8 +120,8 @@ namespace PostgresqlCommunicator
                     {
                         AuthenticationSASLComplete comp = new AuthenticationSASLComplete();
 
-                        comp.SASLAuthData = new byte[length - 10];
-                        Buffer.BlockCopy(buffer, buffPosition + 2, comp.SASLAuthData, 0, length - 10);
+                        comp.SASLAuthData = new byte[payloadLength -4];
+                        Buffer.BlockCopy(buffer, buffPosition, comp.SASLAuthData, 0, payloadLength - 4);
 
                         return comp;
                     }
@@ -139,7 +148,7 @@ namespace PostgresqlCommunicator
         public static string ReadString(byte[] buffer, ref int index, int maxLength)
         {
             int nullTermIndex = -1;
-            for (int i = index; i < maxLength; i++)
+            for (int i = index; i < (index + maxLength); i++)
             {
                 if (buffer[i] == 0x00)
                 {

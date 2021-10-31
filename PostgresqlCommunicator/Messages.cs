@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using System.Net.Sockets;
+
 namespace PostgresqlCommunicator
 {
     /// <summary>
@@ -87,6 +89,36 @@ namespace PostgresqlCommunicator
             int paramSize = Params.Sum(p => p.Name.Length + p.Value.Length + 2);
 
             return 4 + paramSize + 1;
+        }
+
+        /// <summary>
+        ///  TODO: Make this a base memeber
+        /// </summary>
+        /// <param name="s"></param>
+        public void SendTo(Socket s)
+        {
+            int length = GetPayloadLength() + 4;
+
+            byte[] ret = new byte[length];
+
+            int index = 0;
+            MessageParser.WriteInt(ret, ref index, length);
+            MessageParser.WriteShort(ret, ref index, MajorVersion);
+            MessageParser.WriteShort(ret, ref index, MinorVersion);
+            foreach (StartupParam sp in Params)
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(sp.Name);
+                Buffer.BlockCopy(bytes, 0, ret, index, bytes.Length);
+                index += bytes.Length;
+                ret[index++] = 0x00;
+                bytes = Encoding.UTF8.GetBytes(sp.Value);
+                Buffer.BlockCopy(bytes, 0, ret, index, bytes.Length);
+                index += bytes.Length;
+                ret[index++] = 0x00;
+            }
+            ret[index++] = 0x00;
+
+            s.Send(ret);
         }
 
         public override byte[] GetMessageBytes()
@@ -524,12 +556,23 @@ namespace PostgresqlCommunicator
         {
             MessageType = PGTypes.SimpleQuery;
             Query = s;
+        }
 
+        protected SimpleQuery()
+        {
 
         }
+
         protected override int GetPayloadLength()
         {          
            return GetEncodedStringLength(Query);
+        }
+
+        public static SimpleQuery FromBytes(byte[] buffer, int index, int length)
+        {
+            SimpleQuery sq = new SimpleQuery();
+            sq.Query = MessageParser.ReadString(buffer, ref index, length);
+            return sq;
         }
 
         protected override void DoWriteTo(ByteWrapper dest)

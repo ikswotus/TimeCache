@@ -18,19 +18,26 @@ namespace PostgresqlCommunicator
         /// Identifies Auth type
         /// </summary>
         public int AuthenticationType { get; set; }
+
+        /// <summary>
+        /// Length of AuthType
+        /// </summary>
+        protected readonly int _basePayloadLength  = 4;
     }
 
     public class AuthenticationRequestSASL : AuthenticationMessage
     {
         public AuthenticationRequestSASL()
         {
+            AuthenticationType = AuthenticationTypes.SASLRequest;
             MessageType = PGTypes.AuthenticationRequest;
             AuthenticationMechanisms = new List<string>(1);
         }
 
         protected override int GetPayloadLength()
         {
-            throw new NotImplementedException();
+            int mechSum = AuthenticationMechanisms.Sum(s => GetEncodedStringLength(s));
+            return _basePayloadLength + mechSum + 1;
         }
 
 
@@ -38,9 +45,14 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(AuthenticationType);
+            for (int i = 0; i < AuthenticationMechanisms.Count; i++)
+                dest.Write(GetStringBytes2(AuthenticationMechanisms[i]));
+
+            dest.Write(_nullByte);
         }
 
+        
 
         public override byte[] GetMessageBytes()
         {
@@ -51,17 +63,18 @@ namespace PostgresqlCommunicator
     {
         public AuthenticationSuccess()
         {
+            MessageType = PGTypes.AuthenticationRequest;
             AuthenticationType = AuthenticationTypes.Success;
         }
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(AuthenticationType);
         }
 
         protected override int GetPayloadLength()
         {
-            throw new NotImplementedException();
+            return _basePayloadLength;
         }
 
       
@@ -74,22 +87,24 @@ namespace PostgresqlCommunicator
     {
         public AuthenticationSASLContinue()
         {
+            MessageType = PGTypes.AuthenticationRequest;
             AuthenticationType = AuthenticationTypes.SASLContinue;
         }
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(AuthenticationType);
+            dest.Write(Encoding.UTF8.GetBytes(FullText));
         }
 
         protected override int GetPayloadLength()
         {
-            throw new NotImplementedException();
+            return _basePayloadLength + FullText.Length;
         }
 
-        public void Parse(byte[] buffer, int index)
+        public void Parse(byte[] buffer, int index, int payloadLength)
         {
-            FullText = Encoding.UTF8.GetString(buffer, index, buffer.Length - index);
+            FullText = Encoding.UTF8.GetString(buffer, index, payloadLength - 4);
             string[] parts = FullText.Split(',');
             for (int i = 0; i < parts.Length; i++)
             {
@@ -123,17 +138,19 @@ namespace PostgresqlCommunicator
     {
         public AuthenticationSASLComplete()
         {
-            AuthenticationType = AuthenticationTypes.SASLContinue;
+            MessageType = PGTypes.AuthenticationRequest;
+            AuthenticationType = AuthenticationTypes.SASLComplete;
         }
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(AuthenticationType);
+            dest.Write(SASLAuthData);
         }
 
         protected override int GetPayloadLength()
         {
-            throw new NotImplementedException();
+            return _basePayloadLength + SASLAuthData.Length;
         }
 
         public byte[] SASLAuthData { get; set; }
@@ -153,7 +170,9 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(GetStringBytes2(Mechanism));
+            dest.Write(SASLAuthData.Length);
+            dest.Write(SASLAuthData);
         }
         public string Mechanism { get; set; }
 
@@ -166,7 +185,7 @@ namespace PostgresqlCommunicator
 
         public override byte[] GetMessageBytes()
         {
-            byte[] ret = new byte[Mechanism.Length + 1 + SASLAuthData.Length + 4];
+            byte[] ret = new byte[GetPayloadLength()];
 
             int pos = 0;
             MessageParser.WriteString(ret, ref pos, Mechanism, true);
@@ -175,6 +194,20 @@ namespace PostgresqlCommunicator
 
             return ret;
         }
+
+        public static AuthenticationSASLInitialResponse FromBuffer(byte[] buffer, int index, int length)
+        {
+            AuthenticationSASLInitialResponse air = new AuthenticationSASLInitialResponse();
+            air.Mechanism = MessageParser.ReadString(buffer, ref index, length);
+            int authLength = MessageParser.ReadInt(buffer, ref index);
+            if (index + authLength > length + 5)
+                throw new Exception("Invalid auth data length");
+            air.SASLAuthData = new byte[authLength];
+            Array.Copy(buffer, index, air.SASLAuthData, 0, authLength);
+
+            return air;
+        }
+
     }
 
     public class AuthenticationSASLResponse : PGMessage
@@ -186,7 +219,7 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(SASLAuthData);
         }
 
         public byte[] SASLAuthData { get; set; }
@@ -195,7 +228,17 @@ namespace PostgresqlCommunicator
         {
             return SASLAuthData.Length;
         }
+        public static AuthenticationSASLResponse FromBuffer(byte[] buffer, int index, int length)
+        {
+            AuthenticationSASLResponse air = new AuthenticationSASLResponse();
+            //int authLength = MessageParser.ReadInt(buffer, ref index);
+            //if (index + authLength > length + 5)
+            //    throw new Exception("Invalid auth data length");
+            air.SASLAuthData = new byte[length];
+            Array.Copy(buffer, index, air.SASLAuthData, 0, length);
 
+            return air;
+        }
         public override byte[] GetMessageBytes()
         {
             byte[] ret = new byte[SASLAuthData.Length];
@@ -324,6 +367,9 @@ namespace PostgresqlCommunicator
         public byte[] EncryptedDigest { get; set; }
     }
 
+    /// <summary>
+    /// Sent on authentication complete
+    /// </summary>
     public class AuthenticationOK : PGMessage
     {
         /// <summary>
@@ -372,7 +418,8 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(GetStringBytes2(ParameterName));
+            dest.Write(GetStringBytes2(ParameterValue));
         }
         public override byte[] GetMessageBytes()
         {
@@ -420,7 +467,8 @@ namespace PostgresqlCommunicator
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(PID);
+            dest.Write(Key);
         }
 
         public override byte[] GetMessageBytes()

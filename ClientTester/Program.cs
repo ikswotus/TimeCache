@@ -54,9 +54,11 @@ namespace ClientTester
 
 
 
-                Console.WriteLine("Connected");
+            
 
                 PostgresqlCommunicator.Auth.SCRAM.Authenticate(clientSock, "grafana_reader", "gr12345", "perftest", @"D:\data");
+
+                Console.WriteLine("Connected + Authenticated");
 
                 // Try a query
                 string q = @"SELECT metric_name, sample_time as time, current_value FROM test.simple_test WHERE sample_time BETWEEN '2021-10-24T15:03:37.474Z' AND '2021-10-24T16:03:37.474Z' ORDER BY 2 ASC";

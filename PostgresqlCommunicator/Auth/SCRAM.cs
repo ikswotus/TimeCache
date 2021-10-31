@@ -58,11 +58,13 @@ namespace PostgresqlCommunicator.Auth
             message.Params.Add(new PostgresqlCommunicator.StartupParam() { Name = "database", Value = database });
             //message.Params.Add(new PostgresqlCommunicator.StartupParam() { Name = "datestyle", Value = "ISO, MDY" });
 
-            byte[] m = message.GetMessageBytes();
+            message.SendTo(socket);
+
+            //byte[] m = message.GetMessageBytes();
 
             byte[] buffer = new byte[2048];
 
-            int sent = socket.Send(m);
+            int sent = 0;// socket.Send(m);
             int ret = socket.Receive(buffer);
 
             int bufferPosition = 0;
@@ -168,10 +170,138 @@ namespace PostgresqlCommunicator.Auth
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="serverSocket">Postgresql socket</param>
+        /// <param name="clientSocket">client socket (ie grafana)</param>
+        /// <param name="errorDir"></param>
+        public static void ForwardAuthenticate(Socket serverSocket, Socket clientSocket, PostgresqlCommunicator.StartupMessage startMessage, string errorDir = null)
+        {
+            if (serverSocket == null || !serverSocket.Connected)
+                throw new ArgumentException("Invalid server socket", nameof(serverSocket));
+
+            if (clientSocket == null || !clientSocket.Connected)
+                throw new ArgumentException("Invalid client socket", nameof(clientSocket));
+
+            if(startMessage == null)
+                throw new ArgumentException("Invalid start messsage", nameof(startMessage));
+
+            // Send the startup message to the server 
+            //byte[] m = startMessage.GetMessageBytes();
+          
+            byte[] buffer = new byte[2048];
+
+            startMessage.SendTo(serverSocket);
+            int sent = 0;// serverSocket.Send(m);
+            int ret = serverSocket.Receive(buffer);
+
+            int bufferPosition = 0;
+
+            // 2) Response should be an AuthenticationSASL message
+            PostgresqlCommunicator.AuthenticationRequestSASL ars = HandleMessage<PostgresqlCommunicator.AuthenticationRequestSASL>(ret, buffer, out bufferPosition, 0, errorDir);
+
+            if (!ars.AuthenticationMechanisms.Contains(_defaultAuthMechanism))
+            {
+                throw new Exception("Cannot authenticate: SCRAM-SHA-256 not supported");
+            }
+
+            Console.WriteLine("Received SASL auth request - forwarding to client");
+
+            ByteWrapper bw = ByteWrapper.Get(65535);
+
+            ars.WriteTo(bw);
+
+            bw.Send(clientSocket);
+
+
+
+            // 3) Handle SASLInitialResponse message
+            ret = clientSocket.Receive(buffer);
+            PostgresqlCommunicator.AuthenticationSASLInitialResponse air = HandleMessage<PostgresqlCommunicator.AuthenticationSASLInitialResponse>(ret, buffer, out bufferPosition, 0, errorDir);
+            Console.WriteLine("Got sasl initial response from client - forwarding to server");
+
+            bw.Clear();
+            air.WriteTo(bw);
+
+            bw.Send(serverSocket);
+
+            ret = serverSocket.Receive(buffer);
+            PostgresqlCommunicator.AuthenticationSASLContinue firstServerMsg = HandleMessage<PostgresqlCommunicator.AuthenticationSASLContinue>(ret, buffer, out bufferPosition, 0, errorDir);
+
+            Console.WriteLine("Received SASL continue from server- forwarding to client");
+
+
+            bw.Clear();
+
+            firstServerMsg.WriteTo(bw);
+
+            bw.Send(clientSocket);
+
+            ret = clientSocket.Receive(buffer);
+            PostgresqlCommunicator.AuthenticationSASLResponse saslResp = HandleMessage<PostgresqlCommunicator.AuthenticationSASLResponse>(ret, buffer, out bufferPosition, 0, errorDir);
+
+            Console.WriteLine("Got sasl response - forwarding to server");
+
+            bw.Clear();
+
+            saslResp.WriteTo(bw);
+            bw.Send(serverSocket);
+
+            ret = serverSocket.Receive(buffer);
+
+            // Expected response should be SASL Complete + AUTH SUCCESS + Params* + ReadyForQuery
+            PostgresqlCommunicator.AuthenticationSASLComplete comp = HandleMessage<PostgresqlCommunicator.AuthenticationSASLComplete>(ret, buffer, out bufferPosition, 0, errorDir);
+
+            Console.WriteLine("Got sasl auth complete");
+            
+            int index = bufferPosition;
+            PostgresqlCommunicator.AuthenticationSuccess authSuccess = HandleMessage<PostgresqlCommunicator.AuthenticationSuccess>(ret, buffer, out bufferPosition, index, @"D:\data");
+
+            Console.WriteLine("Got auth success");
+
+            List<PGMessage> messages = new List<PGMessage>();
+            messages.Add(comp);
+            messages.Add(authSuccess);
+
+            //// Expect 1+ ParameterStatus messages, Keydata, and a ReadyForQuery
+            while (bufferPosition < ret)
+            {
+                index = bufferPosition;
+                PostgresqlCommunicator.PGMessage unknownMessage = HandleMessage<PostgresqlCommunicator.PGMessage>(ret, buffer, out bufferPosition, index, @"D:\data");
+                //if (unknownMessage is PostgresqlCommunicator.ParameterStatus)
+                //{
+                //    PostgresqlCommunicator.ParameterStatus ps = unknownMessage as PostgresqlCommunicator.ParameterStatus;
+                //}
+                if (unknownMessage is PostgresqlCommunicator.ReadyForQuery)
+                {
+                    if (bufferPosition != ret)
+                    {
+                        throw new Exception("Bytes left in buffer");
+                    }
+                }
+                messages.Add(unknownMessage);
+            }
+            // Forward final block to client
+            NetworkMessage successBlock = ProtocolBuilder.BuildResponseMessage(messages);
+            Console.WriteLine("Sending final success block");
+            successBlock.Send(clientSocket);
+
+            // Receive simple query
+            ret = clientSocket.Receive(buffer);
+           // PostgresqlCommunicator.SimpleQuery simple = HandleMessage<PostgresqlCommunicator.SimpleQuery>(ret, buffer, out bufferPosition, 0, errorDir);
+          //  Console.WriteLine("Received simple query: " + simple.Query);
+            serverSocket.Send(buffer, ret, SocketFlags.None);
+            ret = serverSocket.Receive(buffer);
+            clientSocket.Send(buffer, ret, SocketFlags.None);
+
+        }
+
+
         public static T HandleMessage<T>(int ret, byte[] buffer, out int bufferPosition, int index = 0, string saveDir = null) where T : PostgresqlCommunicator.PGMessage
         {
             bufferPosition = 0;
-            PostgresqlCommunicator.PGMessage responseMessage = PostgresqlCommunicator.MessageParser.ReadMessage(buffer, index, ret, out bufferPosition);
+            PostgresqlCommunicator.PGMessage responseMessage = PostgresqlCommunicator.MessageParser.ReadMessage(buffer, index, ret, out bufferPosition, typeof(T));
             if (responseMessage == null)
             {
                 byte[] response = new byte[ret];
