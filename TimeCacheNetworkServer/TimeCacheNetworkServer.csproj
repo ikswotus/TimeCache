@@ -81,9 +81,12 @@
     <Compile Include="ActiveConnectionInfo.cs" />
     <Compile Include="CachedQueryConfig.cs" />
     <Compile Include="Caching\CachedData.cs" />
-    <Compile Include="Caching\CacheSegement.cs" />
+    <Compile Include="Caching\CachedRow.cs" />
+    <Compile Include="Caching\CacheSegment.cs" />
     <Compile Include="Caching\Eviction.cs" />
     <Compile Include="Caching\MemoryUtils.cs" />
+    <Compile Include="Caching\QueryRange.cs" />
+    <Compile Include="Caching\SegmentManager.cs" />
     <Compile Include="GlobalOptions.cs" />
     <Compile Include="Maths\Algorithms.cs" />
     <Compile Include="NetworkServer.cs" />
@@ -97,6 +100,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="QueryManager.cs" />
+    <Compile Include="Query\IQuerier.cs" />
     <Compile Include="Query\MetaCommands.cs" />
     <Compile Include="Query\QueryUtils.cs" />
     <Compile Include="Query\SpecialQuery.cs" />

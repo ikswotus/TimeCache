@@ -671,10 +671,17 @@ namespace TimeCacheNetworkServer
                     DateTime oldStart = start;
                     string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
                     start = ParsingUtils.RoundInterval(dur, start);
+                    query.BucketingInterval = dur;
                     Trace("TimeBucket found. Rounded start time from " + oldStart.ToString("O") + " to " + start.ToString("O"));
                 }
 
                 DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
+
+
+                query.AdjustedEnd = end;
+                query.AdjustedStart = start;
+                
+                
                 string normalized = query.QueryText.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
 
                 Caching.CachedData cache = null;

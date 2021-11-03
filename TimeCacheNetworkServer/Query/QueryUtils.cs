@@ -101,9 +101,13 @@ namespace TimeCacheNetworkServer.Query
         /// </summary>
         public class NormalizedQuery
         {
+            /// <summary>
+            /// Constructor
+            /// </summary>
             public NormalizedQuery()
             {
                 RemovedPredicates = new List<PredicateGroup>();
+                BucketingInterval = null;
             }
             /// <summary>
             /// Original query
@@ -121,9 +125,18 @@ namespace TimeCacheNetworkServer.Query
             public string QueryTag { get; set; }
 
             /// <summary>
+            /// If bucketing is detected, this will be the interval used.
+            /// </summary>
+            public string BucketingInterval { get; set; }
+
+            /// <summary>
             /// Optional - identified predicatesto allow filtering
             /// </summary>
             public List<PredicateGroup> RemovedPredicates { get; set; }
+
+            public DateTime AdjustedStart { get; set; }
+            public DateTime AdjustedEnd { get; set; }
+
         }
 
         public class PredicateGroup

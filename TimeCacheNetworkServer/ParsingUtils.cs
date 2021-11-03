@@ -44,7 +44,7 @@ namespace TimeCacheNetworkServer
             Match m = QueryTagRegex.Match(query);
             if (m.Success)
             {
-                lock(_tagSync)
+                lock (_tagSync)
                 {
                     return m.Groups["source"].Value + "_" + _queryCount++.ToString("D2");
                 }
@@ -81,7 +81,7 @@ namespace TimeCacheNetworkServer
 
             m = _predicateRegex.Match(query, m.Index + m.Length);
 
-            while(m.Success)
+            while (m.Success)
             {
                 Predicate pred = new Predicate();
                 pred.ColumnName = m.Groups["column_name"].Value;
@@ -143,31 +143,46 @@ namespace TimeCacheNetworkServer
         public static DateTime RoundInterval(string duration, DateTime start)
         {
             TimeSpan d = ParsingUtils.ParseInterval(duration);
-            long ticks = start.Ticks / d.Ticks;
-            return new DateTime(ticks * d.Ticks);
+            return RoundInterval(d, start);
+        }
+
+        public static DateTime RoundInterval(TimeSpan duration, DateTime start)
+        {
+            if (duration.Ticks == 0)
+                return start;
+
+            long ticks = start.Ticks / duration.Ticks;
+            return new DateTime(ticks * duration.Ticks);
         }
 
         public static DateTime CeilingInterval(string duration, DateTime time)
         {
             TimeSpan d = ParsingUtils.ParseInterval(duration);
-            long ticks = (time.Ticks + d.Ticks) / d.Ticks;
-            return new DateTime(ticks * d.Ticks);
+            return CeilingInterval(d, time);
+        }
+        public static DateTime CeilingInterval(TimeSpan duration, DateTime time)
+        {
+            if (duration.Ticks == 0)
+                return time;
+
+            long ticks = (time.Ticks + duration.Ticks) / duration.Ticks;
+            return new DateTime(ticks * duration.Ticks);
         }
 
-            public static double ExpandNumeric(string numeric)
+        public static double ExpandNumeric(string numeric)
+        {
+            int res = 0;
+            int di = -1;
+            for (int i = 0; i < numeric.Length; i++)
             {
-                int res = 0;
-                int di = -1;
-                for (int i = 0; i < numeric.Length; i++)
-                {
-                    if (Char.IsDigit(numeric[i]))
-                        di = i;
+                if (Char.IsDigit(numeric[i]))
+                    di = i;
 
-                }
-                if (di == -1)
-                    throw new Exception("Invalid digits");
-                for (int i = 0; i <= di; i++)
-                    res += (int)(numeric[i] - '0') * (int)Math.Pow(10, (di - i));
+            }
+            if (di == -1)
+                throw new Exception("Invalid digits");
+            for (int i = 0; i <= di; i++)
+                res += (int)(numeric[i] - '0') * (int)Math.Pow(10, (di - i));
 
             if (di + 1 == numeric.Length)
             {
@@ -175,22 +190,22 @@ namespace TimeCacheNetworkServer
                 //throw new Exception("No format specifier");// TODO: Assume something?
             }
 
-                string nt = numeric.Substring(di + 1).ToLower().Trim();
+            string nt = numeric.Substring(di + 1).ToLower().Trim();
 
-                switch(nt)
-                {
-                    case "k":
-                        return res * 1000.0;
-                    case "m":
-                        return res * 1000000.0;
-                    case "b":
-                        return res * 1000000000.0;
-                    default:
-                        throw new Exception("Unsupported numeric expander: " + nt);
-                }
+            switch (nt)
+            {
+                case "k":
+                    return res * 1000.0;
+                case "m":
+                    return res * 1000000.0;
+                case "b":
+                    return res * 1000000000.0;
+                default:
+                    throw new Exception("Unsupported numeric expander: " + nt);
             }
+        }
 
-        
+
 
 
         /// <summary>
@@ -202,7 +217,7 @@ namespace TimeCacheNetworkServer
             {
                 ComparisonType = PredicateComparison.EQUALS;
             }
-            
+
             /// <summary>
             /// Determines how filtering is performed.
             /// </summary>
@@ -259,5 +274,5 @@ namespace TimeCacheNetworkServer
     }
 
 
-   
+
 }

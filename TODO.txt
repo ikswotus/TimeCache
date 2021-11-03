@@ -5,6 +5,7 @@ NetworkServer
 Caching
 -> Segmentation
 -> Assume 'ordered' data (option)
+-> Select * from cache where tag = 'x'
 
 Meta-Commands
 -> Clustering (KMeans++)
@@ -15,3 +16,6 @@ Misc
 
 Cleanup
 -> Message Refactoring (Not implemented methods)
+
+Documentation
+* Bucketing/Update interval explanation
