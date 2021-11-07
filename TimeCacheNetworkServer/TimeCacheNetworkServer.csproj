@@ -87,6 +87,7 @@
     <Compile Include="Caching\MemoryUtils.cs" />
     <Compile Include="Caching\QueryRange.cs" />
     <Compile Include="Caching\SegmentManager.cs" />
+    <Compile Include="Caching\TagManager.cs" />
     <Compile Include="GlobalOptions.cs" />
     <Compile Include="Maths\Algorithms.cs" />
     <Compile Include="NetworkServer.cs" />
@@ -102,9 +103,9 @@
     <Compile Include="QueryManager.cs" />
     <Compile Include="Query\IQuerier.cs" />
     <Compile Include="Query\MetaCommands.cs" />
-    <Compile Include="Query\QueryUtils.cs" />
+    <Compile Include="Query\NormalizedQuery.cs" />
+    <Compile Include="Query\QueryParser.cs" />
     <Compile Include="Query\SpecialQuery.cs" />
-    <Compile Include="Query\StandardQuery.cs" />
     <Compile Include="Stats\CacheStats.cs" />
     <Compile Include="Timeseries.cs" />
   </ItemGroup>

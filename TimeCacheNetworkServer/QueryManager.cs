@@ -42,6 +42,8 @@ namespace TimeCacheNetworkServer
         {
             _connectionString = connectionString;
             _configFile = configFile;
+
+            _parser = new Query.QueryParser(logger);
         }
 
         /// <summary>
@@ -64,6 +66,8 @@ namespace TimeCacheNetworkServer
             }
 
         }
+
+        private Query.QueryParser _parser = null;
 
         /// <summary>
         /// Pair connection string with a query manager.
@@ -181,6 +185,8 @@ namespace TimeCacheNetworkServer
         {
             Dictionary<string, DateTime> _lastRefreshed = new Dictionary<string, DateTime>();
 
+            Query.QueryParser qp = new Query.QueryParser(_logger);
+
             while (!_stopped)
             {
                 CachedQueryConfig cqc = null;
@@ -201,7 +207,8 @@ namespace TimeCacheNetworkServer
                                 continue;
                             }
 
-                            CachedQuery(cq.GetFormatted(), false);
+                            Query.NormalizedQuery nq = qp.Normalize(cq.GetFormatted());
+                            CachedQuery(nq, false);
                         }
 
                         for (int i = 0; i < 30 && !_stopped; i++)
@@ -375,9 +382,9 @@ namespace TimeCacheNetworkServer
             return table;
         }
 
-        public DataTable SimpleQuery(StandardQuery query)
+        public DataTable SimpleQuery(Query.NormalizedQuery query)
         {
-            return SimpleQuery(query.UpdatedQuery, query.Timeout);
+            return SimpleQuery(query.QueryText, query.Timeout);
         }
 
 
@@ -409,41 +416,26 @@ namespace TimeCacheNetworkServer
             }
         }
 
-        public DataTable QueryToTable(StandardQuery query)
+        public DataTable QueryToTable(string query)
         {
-            Match m = ParsingUtils.TimeFilterRegex.Match(query.RawQuery);
-            if(!m.Success)
-            {
-                // TODO: SLOG
-                query.UpdatedQuery = query.RawQuery;
-                return SimpleQuery(query);
-            }
-            DateTime start = DateTime.Parse(m.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            string normalized = query.RawQuery.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
+            Query.NormalizedQuery nq = _parser.Normalize(query);
+            return QueryToTable(nq);
+        }
 
-            CachedData cache = null;
-            lock (_queryCache)
-            {
-                if (!_queryCache.ContainsKey(normalized))
-                {
-                    // TODO: Friendly prefixes? 
-                    string tag = String.IsNullOrEmpty(query.Tag) ? ParsingUtils.GetQueryTag(normalized) : query.Tag;
-                    _queryCache[normalized] = new Caching.CachedData(tag, _logger);
-                }
-                cache = _queryCache[normalized];
-            }
-
+        public DataTable QueryToTable(Query.NormalizedQuery query)
+        {
+            CachedData cache = GetCache(query);
+         
             lock (cache)
             {
                 // Check overlaps
 
-                CachedData.CacheStatus status = cache.HasCachedData(start, end);
+                CachedData.CacheStatus status = cache.HasCachedData(query.StartTime, query.EndTime);
                 bool canUseCache = status != CachedData.CacheStatus.UNCACHED;
 
                 Trace("Cache status was " + status.ToString());
 
-                query.UpdatedQuery = query.RawQuery;
+                //query.UpdatedQuery = query.RawQuery;
 
 
                 if (!canUseCache)
@@ -452,18 +444,18 @@ namespace TimeCacheNetworkServer
 
                     cache.CacheUsage.Add(DateTime.UtcNow);
 
-                    cache.UpdateResults(t, start, end, canUseCache, true, 1);
+                    cache.UpdateResults(t, query.StartTime, query.EndTime, canUseCache, true, 1);
                 }
 
                 if (canUseCache)
                 {
                     // TODO: allow overlap? X minutes of a 'refresh' window.
 
-                    if (cache.FullySatisfied(start, end, query.UpdateInterval))
+                    if (cache.FullySatisfied(query.StartTime, query.EndTime, query.UpdateInterval))
                     {
                         // If we're constantly refreshing, cache will be up to date (mostly)
                         Debug("Normalized query will be satisfied by cache.");
-                        return cache.GetTable(start, end);
+                        return cache.GetTable(query.StartTime, query.EndTime);
                     }
 
                     // Querying new data
@@ -479,20 +471,20 @@ namespace TimeCacheNetworkServer
 
                         if (query.CheckBucketDuration)
                         {
-                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.RawQuery);
+                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.OriginalQueryText);
                             if (bucketMatch.Success)
                             {
                                 newStart = ParsingUtils.RoundInterval(bucketMatch.Groups["duration"].Value, newStart);
                             }
                         }
-                        query.UpdatedQuery = query.RawQuery.Replace(m.Groups["start_time"].Value, newStart.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                        query.QueryText = query.QueryText.Replace(query.QueryStartTime, newStart.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
 
 
                         DataTable t = SimpleQuery(query);
 
                         cache.CacheUsage.Add(DateTime.UtcNow);
 
-                        cache.UpdateResults(t, start, end, canUseCache, true, 1);
+                        cache.UpdateResults(t, query.StartTime, query.EndTime, canUseCache, true, 1);
                     }
                     else if (status == CachedData.CacheStatus.EXTEND_START)
                     {
@@ -502,205 +494,106 @@ namespace TimeCacheNetworkServer
 
                         if (query.CheckBucketDuration)
                         {
-                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.RawQuery);
+                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.OriginalQueryText);
                             if (bucketMatch.Success)
                             {
                                 newEnd = ParsingUtils.CeilingInterval(bucketMatch.Groups["duration"].Value, newEnd);
                             }
                         }
-                        query.UpdatedQuery = query.RawQuery.Replace(m.Groups["end_time"].Value, newEnd.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                        query.QueryText = query.QueryText.Replace(query.QueryEndTime, newEnd.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
 
                         DataTable t = SimpleQuery(query);
 
                         cache.CacheUsage.Add(DateTime.UtcNow);
 
-                        cache.UpdateResults(t, start, end, canUseCache, false, 1);
+                        cache.UpdateResults(t, query.StartTime, query.EndTime, canUseCache, false, 1);
                     }
                     else if(status == CachedData.CacheStatus.EXTEND_BOTH)
                     {
                         // For EXTEND_BOTH, we'll query both start and end
                         Trace("Adjusting start/end of query for EXTEND_BOTH");
 
-                        string queryCopy = query.RawQuery;
+                        string queryCopy = query.QueryText;
 
                         DateTime newStart = cache.DataEndTime;
                         newStart = newStart.Add(query.UpdateWindow.Negate());
 
                         if (query.CheckBucketDuration)
                         {
-                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.RawQuery);
+                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.QueryText);
                             if (bucketMatch.Success)
                             {
                                 newStart = ParsingUtils.RoundInterval(bucketMatch.Groups["duration"].Value, newStart);
                             }
                         }
-                        query.UpdatedQuery = query.RawQuery.Replace(m.Groups["start_time"].Value, newStart.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                        query.QueryText = query.QueryText.Replace(query.QueryStartTime, newStart.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
 
                         DataTable t = SimpleQuery(query);
 
-                        cache.UpdateResults(t, newStart, end, true, false, 1);
+                        cache.UpdateResults(t, newStart, query.EndTime, true, false, 1);
 
                         DateTime newEnd = cache.DataStartTime;
                         newEnd = newEnd.Add(query.UpdateWindow);
 
                         if (query.CheckBucketDuration)
                         {
-                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.RawQuery);
+                            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.QueryText);
                             if (bucketMatch.Success)
                             {
                                 newEnd = ParsingUtils.CeilingInterval(bucketMatch.Groups["duration"].Value, newEnd);
                             }
                         }
-                        queryCopy = queryCopy.Replace(m.Groups["end_time"].Value, newEnd.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                        queryCopy = queryCopy.Replace(query.QueryEndTime, newEnd.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
 
                         t = SimpleQuery(queryCopy);
 
                         cache.CacheUsage.Add(DateTime.UtcNow);
 
-                        cache.UpdateResults(t, start, newEnd, true, false, 1);
+                        cache.UpdateResults(t, query.StartTime, newEnd, true, false, 1);
 
                     }
                 }
 
 
 
-                return cache.GetTable(start, end);
+                return cache.GetTable(query.StartTime, query.EndTime);
 
 
             }
         }
-
-        /// <summary>
-        /// Executes a query utilizing our cache.
-        /// </summary>
-        /// <param name="query"></param>
-        /// <param name="wantResults">Return the results. False can be used for updates, so future queries that do want results have more data cached.</param>
-        /// <returns></returns>
-        public DataTable QueryToTable(string query)
-        {
-            // 'Key' will be the query with time part normalized.
-            Match m = ParsingUtils.TimeFilterRegex.Match(query);
-            if (!m.Success)
-            {
-                Error("Failed to identify start/end date for query - defaulting to passthrough: " + query);
-                SimpleQuery(query);
-            }
-            DateTime start = DateTime.Parse(m.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            string normalized = query.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
-
-            Caching.CachedData cache = null;
-            lock (_queryCache)
-            {
-                if (!_queryCache.ContainsKey(normalized))
-                {
-                    string tag = ParsingUtils.GetQueryTag(normalized);
-                    _queryCache[normalized] = new Caching.CachedData(tag, _logger);
-                }
-                cache = _queryCache[normalized];
-            }
-
-            // If we're updating - make sure nobody else is
-            lock (cache)
-            {
-                // Check overlaps
-                bool canUseCache = (cache.DescriptorMessage != null &&
-                                   (
-                                        (start <= cache.DataEndTime && start >= cache.DataStartTime) ||
-                                        (start < cache.DataStartTime && end >= cache.DataStartTime)
-                                    ));
-
-
-
-                string queryToExecute = query;
-
-                if (canUseCache)
-                {
-                    // TODO: allow overlap? X minutes of a 'refresh' window.
-                    bool within = start <= cache.DataEndTime && start >= cache.DataStartTime
-                        && (end - cache.DataEndTime).TotalSeconds < 30;
-
-                    if (within)
-                    {
-                        // If we're constantly refreshing, cache will be up to date (mostly)
-                       Debug("Normalized query will be satisfied by cache.");
-                        return cache.GetTable(start, end);
-                    }
-
-                    // Use our end date
-                    queryToExecute = queryToExecute.Replace(m.Groups["start_time"].Value, cache.DataEndTime.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
-
-                    Debug("Cached data found - updating query: [" + queryToExecute + "]");
-                }
-
-                
-                DataTable t = SimpleQuery(queryToExecute);
-
-                cache.UpdateResults(t, start, end, false, false, 1);
-
-                return t;
-
-                
-            }
-        }
-
         private Stopwatch _timer = new Stopwatch();
 
-        public IEnumerable<PGMessage> CachedQueryDecomp(Query.QueryUtils.NormalizedQuery query, bool wantResults = true)
+        public IEnumerable<PGMessage> CachedQueryDecomp(Query.NormalizedQuery query, bool wantResults = true)
         {
             _timer.Restart();
 
             try
             {
                 Trace("Cached query: [{0}]", query.QueryText);
-
-
-                // 'Key' will be the query with time part normalized.
-                Match m = ParsingUtils.TimeFilterRegex.Match(query.QueryText);
-                if (!m.Success)
+                if (!query.ValidTimestamps)
                 {
                     Error("Failed to identify start/end date for query - defaulting to passthrough: " + query.QueryText);
                     return Translator.BuildResponseFromData(SimpleQuery(query.QueryText));
                 }
-                DateTime start = DateTime.Parse(m.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
 
                 Match tb = ParsingUtils.TimeBucketRegex.Match(query.OriginalQueryText);
                 if (tb.Success)
                 {
                     // Need to adjust start to be a 'full' bucket
-                    DateTime oldStart = start;
+                    DateTime oldStart = query.StartTime;
                     string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
-                    start = ParsingUtils.RoundInterval(dur, start);
+                    DateTime newStart = ParsingUtils.RoundInterval(dur, oldStart);
                     query.BucketingInterval = dur;
-                    Trace("TimeBucket found. Rounded start time from " + oldStart.ToString("O") + " to " + start.ToString("O"));
+                    Trace("TimeBucket found. Rounded start time from " + oldStart.ToString("O") + " to " + newStart.ToString("O"));
+                    query.StartTime = newStart;
                 }
 
-                DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
 
-
-                query.AdjustedEnd = end;
-                query.AdjustedStart = start;
-                
-                
-                string normalized = query.QueryText.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
-
-                Caching.CachedData cache = null;
-                long startMs = _timer.ElapsedMilliseconds;
-                lock (_queryCache)
-                {
-                    if (!_queryCache.ContainsKey(normalized))
-                    {
-                        string tag = string.IsNullOrEmpty(query.QueryTag) ? ParsingUtils.GetQueryTag(normalized) : query.QueryTag;
-                        _queryCache[normalized] = new Caching.CachedData(tag, _logger);
-                    }
-                    cache = _queryCache[normalized];
-                }
-                long lockTime = _timer.ElapsedMilliseconds - startMs;
-                VTrace("Lock took " + lockTime);
+                CachedData cache = GetCache(query);
                 // If we're updating - make sure nobody else is
                 lock (cache)
                 {
-                    CachedData.CacheStatus status = cache.HasCachedData(start, end);
+                    CachedData.CacheStatus status = cache.HasCachedData(query.StartTime, query.EndTime);
                     bool canUseCache = status != CachedData.CacheStatus.UNCACHED;
 
                     Trace("Cache status was " + status.ToString());
@@ -714,23 +607,23 @@ namespace TimeCacheNetworkServer
                         _timer.Stop();
                         VTrace("Simple query took: " + _timer.ElapsedMilliseconds);
 
-                        cache.UpdateResults(results, start, end, canUseCache);
+                        cache.UpdateResults(results, query.StartTime, query.EndTime, canUseCache);
 
                         if (wantResults)
-                            return cache.Get(start, end, query.RemovedPredicates);
+                            return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
 
                         return null;
                     }
 
                     if (canUseCache)
                     {
-                        if (cache.FullySatisfied(start, end, TimeSpan.FromSeconds(30)))
+                        if (cache.FullySatisfied(query.StartTime, query.EndTime, TimeSpan.FromSeconds(30)))
                         {
                             // If we're constantly refreshing, cache will be up to date (mostly)
                             Debug("Normalized query will be satisfied by cache.");
                             cache.CacheUsage.Add(DateTime.UtcNow);
                             if (wantResults)
-                                return cache.Get(start, end, query.RemovedPredicates);
+                                return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
                             return null;
                         }
 
@@ -738,6 +631,7 @@ namespace TimeCacheNetworkServer
                         if (status == CachedData.CacheStatus.EXTEND_END)
                         {
                             Trace("Adjusting start of query for EXTEND_END");
+
                             // Use our end date, modified to allow refreshing data
                             DateTime edge = cache.DataEndTime.AddMinutes(-5);
                             if (tb.Success)
@@ -747,17 +641,17 @@ namespace TimeCacheNetworkServer
                                 string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
                                 edge = ParsingUtils.RoundInterval(dur, edge);
                                 Trace("TimeBucket found. Rounded edge time from " + oldStart.ToString("O") + " to " + edge.ToString("O"));
-                                queryToExecute = queryToExecute.Replace(m.Groups["start_time"].Value, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                                queryToExecute = queryToExecute.Replace(query.QueryStartTime, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
                             }
                             _timer.Restart();
                             DataTable results = SimpleQuery(queryToExecute);
                             _timer.Stop();
                             VTrace("Simple query took: " + _timer.ElapsedMilliseconds);
 
-                            cache.UpdateResults(results, start, end, canUseCache);
+                            cache.UpdateResults(results, query.StartTime, query.EndTime, canUseCache);
 
                             if (wantResults)
-                                return cache.Get(start, end, query.RemovedPredicates);
+                                return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
 
                             return null;
                         }
@@ -773,17 +667,17 @@ namespace TimeCacheNetworkServer
                                 string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
                                 edge = ParsingUtils.CeilingInterval(dur, edge);
                                 Trace("TimeBucket found. Rounded edge time from " + newEnd.ToString("O") + " to " + edge.ToString("O"));
-                                queryToExecute = queryToExecute.Replace(m.Groups["end_time"].Value, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                                queryToExecute = queryToExecute.Replace(query.QueryEndTime, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
                             }
                             _timer.Restart();
                             DataTable results = SimpleQuery(queryToExecute);
                             _timer.Stop();
                             VTrace("Simple query took: " + _timer.ElapsedMilliseconds);
 
-                            cache.UpdateResults(results, start, end, canUseCache);
+                            cache.UpdateResults(results, query.StartTime, query.EndTime, canUseCache);
 
                             if (wantResults)
-                                return cache.Get(start, end, query.RemovedPredicates);
+                                return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
 
                             return null;
                         }
@@ -803,14 +697,14 @@ namespace TimeCacheNetworkServer
                                 string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
                                 edge = ParsingUtils.RoundInterval(dur, edge);
                                 Trace("TimeBucket found. Rounded edge time from " + oldStart.ToString("O") + " to " + edge.ToString("O"));
-                                queryToExecute = queryToExecute.Replace(m.Groups["start_time"].Value, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                                queryToExecute = queryToExecute.Replace(query.QueryStartTime, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
                             }
                             _timer.Restart();
                             DataTable results = SimpleQuery(queryToExecute);
                             _timer.Stop();
                             VTrace("Query 1/2 query took: " + _timer.ElapsedMilliseconds);
 
-                            cache.UpdateResults(results, edge, end, canUseCache, false);
+                            cache.UpdateResults(results, edge, query.EndTime, canUseCache, false);
 
                             // Perform second query, this time getting data before the cache
                             edge = cache.DataStartTime.AddMinutes(5);
@@ -821,17 +715,17 @@ namespace TimeCacheNetworkServer
                                 string dur = tb.Groups["duration"].Success ? tb.Groups["duration"].Value : tb.Groups["duration_sec"].Value + "s";
                                 edge = ParsingUtils.CeilingInterval(dur, edge);
                                 Trace("TimeBucket found. Rounded edge time from " + newEnd.ToString("O") + " to " + edge.ToString("O"));
-                                queryCopy = queryCopy.Replace(m.Groups["end_time"].Value, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
+                                queryCopy = queryCopy.Replace(query.QueryEndTime, edge.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
                             }
                             _timer.Restart();
                             results = SimpleQuery(queryCopy);
                             _timer.Stop();
                             VTrace("Query 2/2 query took: " + _timer.ElapsedMilliseconds);
 
-                            cache.UpdateResults(results, start, edge, canUseCache, false);
+                            cache.UpdateResults(results, query.StartTime, edge, canUseCache, false);
 
                             if (wantResults)
-                                return cache.Get(start, end, query.RemovedPredicates);
+                                return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
 
                             return null;
                         }
@@ -841,7 +735,7 @@ namespace TimeCacheNetworkServer
                             Debug("Normalized query will be satisfied by cache.");
                             cache.CacheUsage.Add(DateTime.UtcNow);
                             if (wantResults)
-                                return cache.Get(start, end, query.RemovedPredicates);
+                                return cache.Get(query.StartTime, query.EndTime, query.RemovedPredicates);
                             return null;
                         }
                         else
@@ -863,128 +757,37 @@ namespace TimeCacheNetworkServer
             }
         }
 
+        private Caching.CachedData GetCache(Query.NormalizedQuery query)
+        {
+            Caching.CachedData cache = null;
+            long startMs = _timer.ElapsedMilliseconds;
+            lock (_queryCache)
+            {
+                if (!_queryCache.ContainsKey(query.NormalizedQueryText))
+                {
+                    string tag = string.IsNullOrEmpty(query.QueryTag) ? ParsingUtils.GetQueryTag(query.NormalizedQueryText) : query.QueryTag;
+                    _queryCache[query.NormalizedQueryText] = new Caching.CachedData(tag, _logger);
+                }
+                cache = _queryCache[query.NormalizedQueryText];
+            }
+            long lockTime = _timer.ElapsedMilliseconds - startMs;
+            VTrace("Lock took " + lockTime);
+            return cache;
+        }
+
         /// <summary>
         /// Executes a query utilizing our cache.
         /// </summary>
         /// <param name="query"></param>
         /// <param name="wantResults">Return the results. False can be used for updates, so future queries that do want results have more data cached.</param>
         /// <returns></returns>
-        public IEnumerable<PGMessage> CachedQuery(string query, bool wantResults = true, string tag = null)
+        public IEnumerable<PGMessage> CachedQuery(Query.NormalizedQuery nq, bool wantResults = true)
         {
-            Query.QueryUtils.NormalizedQuery nq = new Query.QueryUtils.NormalizedQuery();
-            nq.OriginalQueryText = query;
-            nq.RemovedPredicates = null;
-            nq.QueryText = query;
-            nq.QueryTag = tag;
-
             return CachedQueryDecomp(nq, wantResults);
-            //_timer.Restart();
-
-            //try
-            //{
-            //    Trace("Cached query: [{0}]", query);
-
-
-            //    // 'Key' will be the query with time part normalized.
-            //    Match m = ParsingUtils.TimeFilterRegex.Match(query);
-            //    if (!m.Success)
-            //    {
-            //        Error("Failed to identify start/end date for query - defaulting to passthrough: " + query);
-            //        return Translator.BuildResponseFromData(SimpleQuery(query));
-            //    }
-            //    DateTime start = DateTime.Parse(m.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            //    DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            //    string normalized = query.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
-
-            //    Caching.CachedData cache = null;
-            //    long startMs = _timer.ElapsedMilliseconds;
-            //    lock (_queryCache)
-            //    {
-            //        if (!_queryCache.ContainsKey(normalized))
-            //        {
-            //            string tag = ParsingUtils.GetQueryTag(normalized);
-            //            _queryCache[normalized] = new Caching.CachedData(tag,_logger);
-            //        }
-            //        cache = _queryCache[normalized];
-            //    }
-            //    long lockTime = _timer.ElapsedMilliseconds - startMs;
-            //    VTrace("Lock took " + lockTime);
-            //    // If we're updating - make sure nobody else is
-            //    lock (cache)
-            //    {
-            //        // Check overlaps
-            //        bool canUseCache = (cache.DescriptorMessage != null &&
-            //                           (
-            //                                (start <= cache.DataEndTime && start >= cache.DataStartTime) ||
-            //                                (start < cache.DataStartTime && end >= cache.DataStartTime)
-            //                            ));
-
-
-
-            //        string queryToExecute = query;
-
-            //        if (canUseCache)
-            //        {
-            //            // TODO: allow overlap? X minutes of a 'refresh' window.
-            //            bool within = start <= cache.DataEndTime && start >= cache.DataStartTime
-            //                && (end - cache.DataEndTime).TotalSeconds < 30;
-
-            //            if (within)
-            //            {
-            //                cache.CacheUsage.Add(DateTime.UtcNow);
-            //                // If we're constantly refreshing, cache will be up to date (mostly)
-            //                Debug("Normalized query will be satisfied by cache.");
-            //                return cache.Get(start, end);
-            //            }
-
-            //            // Use our end date
-            //            queryToExecute = queryToExecute.Replace(m.Groups["start_time"].Value, cache.DataEndTime.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "Z");
-
-            //            Debug("Cached data found - updating query: [" + queryToExecute + "]");
-            //        }
-
-            //        DataTable results = SimpleQuery(queryToExecute);
-
-            //        cache.UpdateResults(results, start, end, canUseCache);
-
-            //        if (wantResults)
-            //            return cache.Get(start, end);
-
-            //        return null;
-            //    }
-            //}
-            //finally
-            //{
-            //    _timer.Stop();
-            //    VTrace("Query: " + _timer.Elapsed.ToString());
-            //}
         }
-
       
 
-        public IEnumerable<PostgresqlCommunicator.PGMessage> CachedQuery(StandardQuery query, bool wantResults = true)
-        {
-            if(query.RemovedPredicates == null || query.RemovedPredicates.Count == 0)
-                return CachedQuery(query.RawQuery, wantResults, query.Tag);
-
-            Query.QueryUtils.NormalizedQuery nq = new Query.QueryUtils.NormalizedQuery();
-            nq.QueryText = query.RawQuery;
-            nq.OriginalQueryText = query.RawQuery;
-            nq.RemovedPredicates = query.RemovedPredicates;
-            return CachedQueryDecomp(nq, wantResults);
-
-            //// 'Key' will be the query with time part normalized.
-            //Match m = ParsingUtils.TimeFilterRegex.Match(query);
-            //if (!m.Success)
-            //{
-            //    Console.WriteLine("Failed to identify start/end date for query - defaulting to passthrough: " + query);
-            //    return Translator.BuildResponseFromData(SimpleQuery(query));
-            //}
-
-            //DateTime start = DateTime.Parse(m.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            //DateTime end = DateTime.Parse(m.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-            //string normalized = query.Replace(m.Groups["start_time"].Value, "###START###").Replace(m.Groups["end_time"].Value, "###END###");
-        }
+       
 
         private Dictionary<string, Caching.CachedData> _queryCache = new Dictionary<string, Caching.CachedData>();
 

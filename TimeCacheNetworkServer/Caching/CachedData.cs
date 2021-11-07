@@ -343,7 +343,7 @@ namespace TimeCacheNetworkServer.Caching
         /// <param name="predicates">List of predicates to filter on</param>
         /// <param name="inclusiveEnd"></param>
         /// <returns></returns>
-        public IEnumerable<PGMessage> Get(DateTime start, DateTime end, List<Query.QueryUtils.PredicateGroup> predicates, bool inclusiveEnd = true)
+        public IEnumerable<PGMessage> Get(DateTime start, DateTime end, List<Query.PredicateGroup> predicates, bool inclusiveEnd = true)
         {
             if (DescriptorMessage == null)
                 throw new Exception("No data - Update() must be called");
@@ -368,7 +368,7 @@ namespace TimeCacheNetworkServer.Caching
             long startMs = _timer.ElapsedMilliseconds;
             if (predicates != null)
             {
-                foreach (Query.QueryUtils.PredicateGroup pg in predicates)
+                foreach (Query.PredicateGroup pg in predicates)
                 {
                     string terminatedKey = pg.Key + "\0";
                     // Match by column

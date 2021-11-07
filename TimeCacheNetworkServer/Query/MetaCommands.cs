@@ -480,7 +480,7 @@ namespace TimeCacheNetworkServer
         /// <returns></returns>
         public static TimeCollection GetSeriesCollection(SpecialQuery query, QueryManager qm)
         {
-            DataTable table = qm.QueryToTable(new StandardQuery() { RawQuery = query.RawQuery });
+            DataTable table = qm.QueryToTable(query.RawQuery);
 
             return GetSeriesCollection(table);
         }

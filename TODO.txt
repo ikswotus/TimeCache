@@ -19,3 +19,14 @@ Cleanup
 
 Documentation
 * Bucketing/Update interval explanation
+
+Tests
+* QueryParsing
+--Normalization
+--Tagging
+--Segmenting
+
+
+
+Issues
+* Grafana chart scale - due to update window most likely, eventually self corrects but obnoxious

@@ -313,7 +313,7 @@ namespace TimeCacheNetworkServer
 
                 QueryManager qm = QueryManager.GetManager(_connectionString, null, _logger);
 
-                List<SpecialQuery> specialQueries = new List<SpecialQuery>();
+                Query.QueryParser qp = new Query.QueryParser(_logger);
 
                 while (!_stop)
                 {
@@ -354,180 +354,10 @@ namespace TimeCacheNetworkServer
                             PostgresqlCommunicator.SimpleQuery sq = new PostgresqlCommunicator.SimpleQuery(buffer, index, length);
                             Debug("Received query: [" + sq.Query + "]");
 
-                            StandardQuery query = new StandardQuery();
-
-                            DateTime startTime = DateTime.UtcNow.AddHours(-6);
-                            DateTime endTime = DateTime.UtcNow;
-
-                            Match tm = ParsingUtils.TimeFilterRegex.Match(sq.Query);
-                            if (tm.Success)
-                            {
-                                startTime = DateTime.Parse(tm.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-                                endTime = DateTime.Parse(tm.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-                            }
-
-                            /**
-                             * Meta-command format
-                             * [{command,(params)}] query
-                             * 
-                             * 
-                             */
-                            if (sq.Query.StartsWith("["))
-                            {
-                                Match m = ParsingUtils.SpecialQueryRegex.Match(sq.Query);
-                                if (m.Success)
-                                {
-                                    string meta = m.Groups["meta"].Value.Trim('[').TrimEnd(']');
-
-                                    sq.Query = sq.Query.Replace(m.Groups["meta"].Value, "").TrimStart();
-
-                                    string[] parts = meta.Split(new string[] { "},{" }, StringSplitOptions.None).Select(p => p.TrimStart('{').TrimEnd('}')).ToArray();
-
-                                    foreach (string part in parts)
-                                    {
-                                        string[] optionParts = part.Split(',');
-
-                                        SpecialQuery sp = new SpecialQuery(optionParts[0], sq.Query);
-                                        sp.Start = startTime;
-                                        sp.End = endTime;
-
-                                        if (optionParts.Length > 1)
-                                        {
-                                            for (int p = 1; p < optionParts.Length; p++)
-                                            {
-                                                string[] namedOpts = optionParts[p].Split('=');
-                                                if (namedOpts.Length == 2)
-                                                {
-                                                    if (namedOpts[0].Equals("start", StringComparison.OrdinalIgnoreCase))
-                                                    {
-                                                        sp.Start = DateTime.Parse(namedOpts[1]);
-                                                    }
-                                                    else if (namedOpts[0].Equals("end", StringComparison.OrdinalIgnoreCase))
-                                                    {
-                                                        sp.End = DateTime.Parse(namedOpts[1]);
-                                                    }
-                                                    else
-                                                    {
-                                                        sp.Options.Add(namedOpts[0], namedOpts[1]);
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    Error("Skipping invalid option: " + optionParts[p]);
-                                                }
-                                            }
-                                        }
-                                       // else
-                                        {
-                                            specialQueries.Add(sp);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    Error("Unparsed special? " + sq.Query);
-                                }
-                            }
-
-                            /**
-                             * Options
-                             * {optionkey=optionvalue} query
-                             */
-                            if (sq.Query.StartsWith("{"))
-                            {
-                                // Options
-                                Match optMatch = ParsingUtils.OptionsRegex.Match(sq.Query);
-
-                                if (optMatch.Success)
-                                {
-                                    // comma separated key=value pairs
-                                    string[] values = optMatch.Groups["options"].Value.TrimStart('{').TrimEnd('}').Split(',');
-
-                                    foreach (string v in values)
-                                    {
-                                        string[] namedOpts = v.Split('=');
-                                        if (namedOpts.Length != 2)
-                                        {
-                                            Error("Skipping invalid option: " + v);
-                                            continue;
-                                        }
-                                        try
-                                        {
-                                            switch (namedOpts[0].ToLower())
-                                            {
-                                                case "allowcache":
-                                                case "cache":
-                                                    query.AllowCache = bool.Parse(namedOpts[1]);
-                                                    break;
-                                                case "decomp":
-                                                case "decompose":
-                                                case "allowdecomp":
-                                                    bool allowDecomp = bool.Parse(namedOpts[1]);
-                                                    if(allowDecomp)
-                                                        query.RemovedPredicates = new List<Query.QueryUtils.PredicateGroup>();
-                                                    break;
-                                                case "timeout":
-                                                    query.Timeout = int.Parse(namedOpts[1]);
-                                                    break;
-                                                case "updateinterval":
-                                                    query.UpdateInterval = TimeSpan.Parse(namedOpts[1]);
-                                                    break;
-                                                case "checkbucket":
-                                                case "checkbucketduration":
-                                                    query.CheckBucketDuration = bool.Parse(namedOpts[1]);
-                                                    break;
-                                                case "metaonly":
-                                                case "metadataonly":
-                                                    query.MetaOnly = bool.Parse(namedOpts[1]);
-                                                    break;
-                                                case "replace":
-                                                    // expect 2 'values' comma-separated
-                                                    string[] vals = namedOpts[1].Split(',');
-                                                    if (vals.Length != 2)
-                                                    {
-                                                        Error("Invalid replacement option: " + namedOpts[1]);
-                                                        break;
-                                                    }
-                                                    query.Replacements[vals[0]] = vals[1];
-                                                    break;
-                                                case "tag":
-                                                    query.Tag = namedOpts[1];
-                                                    break;
-                                                default:
-                                                    Error("Unknown option: " + namedOpts[0]);
-                                                    break;
-                                            }
-                                        }
-                                        catch (Exception exc)
-                                        {
-                                            Error("Failure handing option: " + v + ", " + exc);
-                                        }
-                                    }
-                                    sq.Query = sq.Query.Replace(optMatch.Groups["options"].Value, "");
-                                }
-                                else
-                                {
-                                    Error("Unparsed options: " + sq.Query);
-                                }
-
-                            }
-
-
+                            Query.NormalizedQuery query = qp.Normalize(sq.Query);
+                           
 
                             List<PGMessage> messageList = new List<PGMessage>();
-
-
-                            query.RawQuery = sq.Query;
-
-                            // TODO: Use dedicated flag??
-                            if(query.RemovedPredicates != null)
-                            {
-                                Debug("Checking for predicates");
-                                Query.QueryUtils.NormalizedQuery nq = Query.QueryUtils.NormalizeWherePredicate(query.RawQuery);
-                                query.RemovedPredicates = nq.RemovedPredicates;
-                                query.RawQuery = nq.QueryText;
-                                Debug("Found predicates:" + query.RemovedPredicates.Count);
-                            }
 
                             if (query.AllowCache)
                             {
@@ -548,15 +378,38 @@ namespace TimeCacheNetworkServer
                             }
                             else
                             {
-                                // TODO: Trace
-                                query.UpdatedQuery = query.RawQuery;
                                 messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
                             }
 
-                            if (specialQueries.Count == 0)
+                            if (query.MetaCommands.Count == 0)
                             {
                                 messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
                                 messageList.Add(new ReadyForQuery());
+                            }
+                            else
+                            {
+                                List<PGMessage> spList = new List<PGMessage>();
+
+                                foreach (SpecialQuery special in query.MetaCommands)
+                                {
+                                    IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm);
+                                    if (messages == null)
+                                        continue;
+                                    spList.AddRange(messages);
+                                }
+
+                                spList.Add(new CommandCompletion("SELECT 1"));
+                                spList.Add(new ReadyForQuery());
+
+                                NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(spList);
+                                long sb = sPmess.Send(s);
+                                // byte[] payload = ProtocolBuilder.BuildResponse(spList);
+
+                                // Send select result
+                                Debug("Sending special response");
+                                //int sb = s.Send(payload);
+                                //Trace("Sent: " + sb + ", " + payload.Length);
+                                Trace("Sent: " + sb);
                             }
 
                             NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
@@ -573,35 +426,7 @@ namespace TimeCacheNetworkServer
                             Critical("Unhandled type: " + PGTypes.GetType(pType));
                         }
 
-                        // Handled all queries.
-
-                        if (specialQueries.Count > 0)
-                        {
-                            List<PGMessage> spList = new List<PGMessage>();
-
-                            foreach (SpecialQuery special in specialQueries)
-                            {
-                                IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm);
-                                if (messages == null)
-                                    continue;
-                                spList.AddRange(messages);
-                            }
-
-                            spList.Add(new CommandCompletion("SELECT 1"));
-                            spList.Add(new ReadyForQuery());
-
-                            NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(spList);
-                            long sb = sPmess.Send(s);
-                           // byte[] payload = ProtocolBuilder.BuildResponse(spList);
-
-                            // Send select result
-                            Debug("Sending special response");
-                            //int sb = s.Send(payload);
-                            //Trace("Sent: " + sb + ", " + payload.Length);
-                            Trace("Sent: " + sb);
-
-                            specialQueries.Clear();
-                        }
+                       
 
 
                     }

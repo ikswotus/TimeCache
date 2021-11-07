@@ -29,9 +29,9 @@ namespace TimeCacheNetworkServer.Caching
             _querier = querier;
         }
 
-        public IEnumerable<PostgresqlCommunicator.PGMessage> Get(Query.QueryUtils.NormalizedQuery query, bool inclusiveEnd = true)
+        public IEnumerable<PostgresqlCommunicator.PGMessage> Get(Query.NormalizedQuery query, bool inclusiveEnd = true)
         {
-            List<QueryRange> needed = GetRanges(new QueryRange() { StartTime = query.AdjustedStart, EndTime = query.AdjustedEnd });
+            List<QueryRange> needed = GetRanges(new QueryRange() { StartTime = query.StartTime, EndTime = query.EndTime });
             
             if(needed.Count > 0)
             {
