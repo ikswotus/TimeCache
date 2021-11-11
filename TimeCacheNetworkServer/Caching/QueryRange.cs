@@ -11,6 +11,16 @@ namespace TimeCacheNetworkServer.Caching
     /// </summary>
     public class QueryRange
     {
+        public QueryRange(DateTime start, DateTime end)
+        {
+            StartTime = start;
+            EndTime = end;
+
+            if (StartTime > EndTime)
+                throw new Exception("Invalid query range, start cannot be after end");
+        }
+
+
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
     }

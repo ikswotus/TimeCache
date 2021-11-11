@@ -187,7 +187,7 @@ namespace TimeCacheNetworkServer.Caching
 
                 for (int i = 0; i < DescriptorMessage.Fields.Count; i++)
                 {
-                    if (DescriptorMessage.Fields[i].ColumnName == "time\0")
+                    if (DescriptorMessage.Fields[i].ColumnName == "time\0" || DescriptorMessage.Fields[i].ColumnName == "time")
                     {
                         _timeIndex = i;
                         break;

@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CappedQueue.cs" />
+    <Compile Include="EmptySLogger.cs" />
     <Compile Include="ConsoleSLogger.cs" />
     <Compile Include="ISlogger.cs" />
     <Compile Include="SLoggableObject.cs" />

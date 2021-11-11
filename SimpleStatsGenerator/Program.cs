@@ -25,131 +25,6 @@ namespace SimpleStatsGenerator
     class Program
     {
         /// <summary>
-        /// Set of machine names to use for stat creation.
-        /// </summary>
-        private static List<string> _machines = new List<string>()
-        {
-            "client-01",
-            "tablet-02",
-            "host-01",
-            "host-02",
-            "upload-77",
-            "proxy-08",
-            "webserver-01",
-            "webserver-02"
-        };
-
-        /// <summary>
-        /// Category names
-        /// </summary>
-        private static List<string> _categories = new List<string>()
-        {
-            "memory",
-            "cpu",
-            "codestats"
-        };
-
-        /// <summary>
-        /// Counters names
-        /// </summary>
-        private static List<string> _counters = new List<string>()
-        {
-            "threads",
-            "handles",
-            "pages",
-            "bytes sent",
-            "errors",
-            "active"
-        };
-
-        /// <summary>
-        /// instance names
-        /// </summary>
-        private static List<string> _instances = new List<string>
-        {
-            "_total",
-            "devenv",
-            "statsgenerator",
-            "timecache_server-01",
-            "timecache_server-02",
-            "timecache_client-01"
-        };
-
-        private class DummyInstance
-        {
-            public DummyInstance()
-            {
-
-            }
-
-            /// <summary>
-            /// new random instance
-            /// </summary>
-            /// <returns></returns>
-            public static DummyInstance GetInstance()
-            {
-                DummyInstance di = new DummyInstance();
-
-                di.MachineID = _rand.Next(_machines.Count);
-                di.Machine = _machines[di.MachineID];
-                di.CategoryID = _rand.Next(_categories.Count );
-                di.Category = _categories[di.CategoryID];
-                di.CounterID = _rand.Next(_counters.Count );
-                di.Counter = _counters[di.CounterID];
-                di.InstanceID = _rand.Next(_instances.Count);
-                di.Instance = _instances[di.InstanceID];
-
-                di.Anchor = new Random((int)DateTime.UtcNow.Ticks).Next(1000, 20000);
-
-                return di;
-            }
-
-            public static List<DummyInstance> AllInstances()
-            {
-                Random r = new Random((int)DateTime.UtcNow.Ticks);
-                List<DummyInstance> dummies = new List<DummyInstance>();
-                for(int m = 0; m < _machines.Count; m++)
-                {
-                    for (int c = 0; c < _categories.Count; c++)
-                        for (int n = 0; n < _counters.Count; n++)
-                            for (int i = 0; i < _instances.Count; i++)
-                            {
-                                DummyInstance di = new DummyInstance();
-                                di.MachineID = (m + 1);
-                                di.Machine = _machines[m];
-                                di.CategoryID = (c + 1);
-                                di.Category = _categories[c];
-                                di.CounterID = (n + 1);
-                                di.Counter = _counters[n];
-                                di.InstanceID = (i + 1);
-                                di.Instance = _instances[i];
-                                di.Anchor = r.Next(1000, 20000);
-                                dummies.Add(di);
-                            }
-                }
-                return dummies;
-            }
-
-            public int Anchor = 0;
-
-            public string Machine { get; set; }
-            public string Category { get; set; }
-            public string Counter { get; set; }
-            public string Instance { get; set; }
-
-            public int MachineID { get; set; }
-            public int CategoryID { get; set; }
-            public int CounterID { get; set; }
-            public int InstanceID { get; set; }
-
-        }
-
-        /// <summary>
-        /// Randomly choose stat names
-        /// </summary>
-        private static Random _rand = new Random(DateTime.UtcNow.Millisecond);
-
-        /// <summary>
         /// Insert values.
         /// TODO: Change this to a bulk insert.
         /// </summary>
@@ -194,14 +69,17 @@ namespace SimpleStatsGenerator
                 //    instances.Add(DummyInstance.GetInstance());
                 //}
 
-                List<DummyInstance> instances = DummyInstance.AllInstances();
+                Utils.Test.SampleDataGenerator sdg = new Utils.Test.SampleDataGenerator();
+
+                List<Utils.Test.SampleDataGenerator.DummyCounter> instances = sdg.AllInstances();
 
                 TestData.TimeseriesDataIDDataTable tdt = new TestData.TimeseriesDataIDDataTable();
                 tdt.TableName = "stats.timeseries_data_id";
 
                 Utils.Postgresql.TableManager tm = new Utils.Postgresql.TableManager(new Utils.Postgresql.ManagedBulkWriter(), args[0]);
 
-
+                Random _rand = new Random(DateTime.UtcNow.Millisecond);
+                
                 //// Generate 2h of data at 1s intervals (7200 data points)
                 //// Go into the future so we can test querying through now().
 
@@ -214,7 +92,7 @@ namespace SimpleStatsGenerator
                  
                     while (start < end)
                     {
-                        foreach (DummyInstance di in instances)
+                        foreach (Utils.Test.SampleDataGenerator.DummyCounter di in instances)
                         {
                             tdt.AddTimeseriesDataIDRow(start, (double)(_rand.Next(di.Anchor) + _rand.NextDouble()), di.MachineID, di.CategoryID, di.CounterID, di.InstanceID);
                         }
@@ -239,7 +117,7 @@ namespace SimpleStatsGenerator
                     {
                         for (int i = 0; i < 30; i++)
                         {
-                            foreach (DummyInstance di in instances)
+                            foreach (Utils.Test.SampleDataGenerator.DummyCounter di in instances)
                             {
                                 tdt.AddTimeseriesDataIDRow(DateTime.UtcNow, (double)(_rand.Next(di.Anchor) + _rand.NextDouble()), di.MachineID, di.CategoryID, di.CounterID, di.InstanceID);
                             }

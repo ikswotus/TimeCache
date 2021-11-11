@@ -17,6 +17,14 @@ namespace SLog
             Records = new CappedQueue<SLogRecord>(capacity);
         }
 
+        public void PrintToConsole(bool flush)
+        {
+            List<SLogRecord> rr = GetAllRecords(flush);
+            foreach(SLogRecord r in rr)
+            {
+                Console.WriteLine("{0},{1},{2},{3}", r.Timestamp.ToString("O"), r.Level.ToString(), r.Component, r.Message);
+            }
+        }
         public void AddRecord(string component, string message, DateTime timestamp, LogLevel level)
         {
             lock (_recordLock)

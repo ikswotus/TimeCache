@@ -37,7 +37,14 @@ namespace TimeCacheNetworkServer.Query
             Tag = null;
         }
 
-
+        /**
+         * Several versions of the query are kept around
+         * 
+         * 1) The 'Original' unmodified query
+         * 2) The 'Normalized' query - timestamp adjusted query
+         * 3) The 'Decomposed' query - predicate adjusted query - will match Normalized if not decomposing
+         * 4) The actual query to execute - will match Decomposed? TODO: Can probably just merge with QueryText...
+         */
 
         /// <summary>
         /// Original query - unmodified. Will include any options/meta-commands
@@ -49,6 +56,12 @@ namespace TimeCacheNetworkServer.Query
         /// replaced with placeholders
         /// </summary>
         public string NormalizedQueryText { get; set; }
+
+        /// <summary>
+        /// Query with options/meta-commands removed, and timestamps/predicates
+        /// replaced with placeholders
+        /// </summary>
+        //public string DecomposedQueryText { get; set; }
 
         /// <summary>
         /// Actual query to execute
@@ -78,7 +91,12 @@ namespace TimeCacheNetworkServer.Query
         /// </summary>
         public List<SpecialQuery> MetaCommands { get; set; }
 
-
+        public TimeSpan GetBucketTime()
+        {
+            if (String.IsNullOrEmpty(BucketingInterval))
+                return TimeSpan.Zero;
+            return ParsingUtils.ParseInterval(BucketingInterval);
+        }
 
         /// <summary>
         /// Allows identification of the query.
@@ -91,6 +109,11 @@ namespace TimeCacheNetworkServer.Query
         /// If true, retrieved data should be cached
         /// </summary>
         public bool AllowCache { get; set; }
+
+        /// <summary>
+        /// If true, query can be decomposed
+        /// </summary>
+        public bool AllowDecomposition { get; set; }
 
         /// <summary>
         /// DB timeout passed into the Npgsql command used to retrieve the data
@@ -135,6 +158,16 @@ namespace TimeCacheNetworkServer.Query
         public string QueryStartTime { get; set; }
         public string QueryEndTime { get; set; }
 
+
+        public string QueryToExecute(DateTime start, DateTime end)
+        {
+            return NormalizedQueryText.Replace(QueryParser.TimePlaceholderStart, start.ToString(QueryParser.TimestampToStringFormat)).Replace(QueryParser.TimePlaceholderEnd, end.ToString(QueryParser.TimestampToStringFormat));
+        }
+
+        public string QueryToExecute(TimeCacheNetworkServer.Caching.QueryRange qr)
+        {
+            return QueryToExecute(qr.StartTime, qr.EndTime);
+        }
 
     }
 

@@ -155,5 +155,24 @@ namespace Utils.Postgresql
                 }
             }
         }
+
+        /**
+         * Data Collection
+         * 
+         */
+        public static DataTable GetTable(string connString, string query)
+        {
+            DataTable table = new DataTable();
+            using (Npgsql.NpgsqlConnection conn = new Npgsql.NpgsqlConnection(connString))
+            {
+                conn.Open();
+
+                using (Npgsql.NpgsqlDataAdapter adapt = new Npgsql.NpgsqlDataAdapter(query, conn))
+                {
+                    adapt.Fill(table);
+                }
+            }
+            return table;
+        }
     }
 }

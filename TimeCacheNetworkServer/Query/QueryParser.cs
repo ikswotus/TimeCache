@@ -34,11 +34,17 @@ namespace TimeCacheNetworkServer.Query
         /// </summary>
         /// <param name="rawQuery"></param>
         /// <returns></returns>
-        public NormalizedQuery Normalize(string rawQuery)
+        public NormalizedQuery Normalize(string rawQuery, string tag = null)
         {
             NormalizedQuery query = new NormalizedQuery();
             query.OriginalQueryText = rawQuery;
             query.QueryText = rawQuery;
+
+            query.Tag = tag;
+            if (String.IsNullOrEmpty(tag))
+            {
+                query.Tag = ParsingUtils.GetQueryTag(query.QueryText);
+            }
 
             DateTime startTime = DateTime.UtcNow.AddHours(-6);
             DateTime endTime = DateTime.UtcNow;
@@ -155,9 +161,7 @@ namespace TimeCacheNetworkServer.Query
                                 case "decomp":
                                 case "decompose":
                                 case "allowdecomp":
-                                    bool allowDecomp = bool.Parse(namedOpts[1]);
-                                    if (allowDecomp)
-                                        query.RemovedPredicates = new List<Query.PredicateGroup>();
+                                    query.AllowDecomposition = bool.Parse(namedOpts[1]);
                                     break;
                                 case "timeout":
                                     query.Timeout = int.Parse(namedOpts[1]);
@@ -209,43 +213,59 @@ namespace TimeCacheNetworkServer.Query
             // Normalize the query timestamps
             if (tm.Success)
             {
-                query.NormalizedQueryText = query.QueryText.Replace(tm.Groups["start_time"].Value, "###START###").Replace(tm.Groups["end_time"].Value, "###END###");
+                query.NormalizedQueryText = query.QueryText.Replace(tm.Groups["start_time"].Value, TimePlaceholderStart).Replace(tm.Groups["end_time"].Value, TimePlaceholderEnd);
             }
 
             // Normalize the query predicates
-            Match wm = WhereRegex.Match(query.NormalizedQueryText);
-            if (wm.Success)
+            if (query.AllowDecomposition)
             {
-                int start = wm.Groups[0].Index + wm.Groups[0].Length;
-                if (start < rawQuery.Length)
+                Match wm = WhereRegex.Match(query.NormalizedQueryText);
+                if (wm.Success)
                 {
-                    int gb = rawQuery.IndexOf("group by");
-                    if (gb > 0 && gb < rawQuery.Length)
+                    int start = wm.Groups[0].Index + wm.Groups[0].Length;
+                    if (start < rawQuery.Length)
                     {
-                        wm = PredicateRegex.Match(query.NormalizedQueryText, start);
-                        while (wm.Success)
+                        int gb = rawQuery.IndexOf("group by");
+                        if (gb > 0 && gb < rawQuery.Length)
                         {
-                            PredicateGroup pg = new PredicateGroup();
-                            pg.QueryText = wm.Groups["predicate"].Value;
-                            pg.Key = wm.Groups["key"].Value;
-                            pg.Value = wm.Groups["value"].Value.Trim('\'');
-
-                            query.RemovedPredicates.Add(pg);
-
-                            start = wm.Index + wm.Length;
-                            if (start >= gb)
-                                break;
                             wm = PredicateRegex.Match(query.NormalizedQueryText, start);
+                            while (wm.Success)
+                            {
+                                PredicateGroup pg = new PredicateGroup();
+                                pg.QueryText = wm.Groups["predicate"].Value;
+                                pg.Key = wm.Groups["key"].Value;
+                                pg.Value = wm.Groups["value"].Value.Trim('\'');
+
+                                query.RemovedPredicates.Add(pg);
+
+                                start = wm.Index + wm.Length;
+                                if (start >= gb)
+                                    break;
+                                wm = PredicateRegex.Match(query.NormalizedQueryText, start);
+                            }
                         }
                     }
                 }
+
+                foreach (PredicateGroup pg in query.RemovedPredicates)
+                {
+                    query.QueryText = query.QueryText.Replace(pg.QueryText, "");
+                }
             }
-            foreach (PredicateGroup pg in query.RemovedPredicates)
-            {
-                query.QueryText = query.QueryText.Replace(pg.QueryText, "");
-            }
+           
 
             return query;
+        }
+
+        /// <summary>
+        /// Static method for normalization
+        /// </summary>
+        /// <param name="rawQuery"></param>
+        /// <returns></returns>
+        public static NormalizedQuery NormalizeQuery(string rawQuery)
+        {
+            QueryParser qp = new QueryParser(SLog.EmptySLogger.Instance);
+            return qp.Normalize(rawQuery);
         }
 
         /// <summary>
@@ -264,6 +284,21 @@ namespace TimeCacheNetworkServer.Query
 
             return replaced;
         }
+
+        /// <summary>
+        /// "yyyy-MM-ddTHH:mm:ss.fffZ"
+        /// </summary>
+        public const string TimestampToStringFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+
+        /// <summary>
+        /// "###START###"
+        /// </summary>
+        public const string TimePlaceholderStart = "###START###";
+
+        /// <summary>
+        /// "###END###"
+        /// </summary>
+        public const string TimePlaceholderEnd = "###END###";
 
         /// <summary>
         /// Look for multiple spaces in a row.

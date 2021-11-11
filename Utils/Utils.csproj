@@ -80,10 +80,27 @@
     <Compile Include="FixedSizeBytePool.cs" />
     <Compile Include="Postgresql\TableManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Test\SampleDataGenerator.cs" />
+    <Compile Include="Test\TestData.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>TestData.xsd</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="Test\TestData.xsc">
+      <DependentUpon>TestData.xsd</DependentUpon>
+    </None>
+    <None Include="Test\TestData.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>TestData.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Test\TestData.xss">
+      <DependentUpon>TestData.xsd</DependentUpon>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -32,7 +32,7 @@ namespace TimeCacheNetworkServer
         /// <summary>
         /// Pull out table to use as 'key' to identify a query for stat tracking
         /// </summary>
-        public static Regex QueryTagRegex = new Regex(@"FROM (?<source>[\w\W]+?)(?:\s\n\r)+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        public static Regex QueryTagRegex = new Regex(@"FROM (?<source>[\w\W]+?)[\s\r\n]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
         /// return a friendly tag name
