@@ -155,6 +155,11 @@ namespace TimeCacheNetworkServer.Query
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
 
+        public QueryRange GetRange()
+        {
+            return new QueryRange(StartTime, EndTime);
+        }
+
         public string QueryStartTime { get; set; }
         public string QueryEndTime { get; set; }
 
@@ -164,7 +169,7 @@ namespace TimeCacheNetworkServer.Query
             return NormalizedQueryText.Replace(QueryParser.TimePlaceholderStart, start.ToString(QueryParser.TimestampToStringFormat)).Replace(QueryParser.TimePlaceholderEnd, end.ToString(QueryParser.TimestampToStringFormat));
         }
 
-        public string QueryToExecute(TimeCacheNetworkServer.Caching.QueryRange qr)
+        public string QueryToExecute(TimeCacheNetworkServer.QueryRange qr)
         {
             return QueryToExecute(qr.StartTime, qr.EndTime);
         }

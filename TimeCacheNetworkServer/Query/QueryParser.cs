@@ -252,7 +252,13 @@ namespace TimeCacheNetworkServer.Query
                     query.QueryText = query.QueryText.Replace(pg.QueryText, "");
                 }
             }
-           
+
+            Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.OriginalQueryText);
+            if (bucketMatch.Success)
+            {
+                query.BucketingInterval = bucketMatch.Groups["duration"].Value;
+            }
+
 
             return query;
         }

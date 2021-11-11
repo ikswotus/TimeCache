@@ -24,32 +24,96 @@ namespace TimeCacheNetworkServer.Caching
         /// </summary>
         /// <param name="querier"></param>
         /// <param name="logger"></param>
-        public SegmentManager(Query.IQuerier querier, SLog.SLogger logger)
+        public SegmentManager(Query.IQuerier querier, SLog.ISLogger logger)
             : base("SegmentManager", logger)
         {
             _querier = querier;
         }
 
-        public IEnumerable<PostgresqlCommunicator.PGMessage> Get(Query.NormalizedQuery query, bool inclusiveEnd = true)
+        /// <summary>
+        /// Cached data will identify when it is used, so the eviction mechanism
+        /// can avoid removing active data.
+        /// </summary>
+        public List<DateTime> CacheUsage = new List<DateTime>();
+
+        public void Clear()
+        {
+            foreach(CacheSegment segment in _segments)
+            {
+                segment.Clear();
+                CacheUsage.Clear();
+            }
+        }
+
+
+        public DataTable GetTable(Query.NormalizedQuery query, bool inclusiveEnd = true)
         {
 
-            List<QueryRange> needed = GetMissingRanges(new QueryRange(query.StartTime, query.EndTime), query.GetBucketTime(), query.UpdateWindow);
-            
-            if(needed.Count > 0)
+            QueryRange normalRange = query.GetRange();
+
+            CacheSegment cs = UpdateQuery(query, normalRange);
+
+            if (DescriptorMessage == null)
+                throw new Exception("No data - Update() must be called");
+
+            DataTable t = new DataTable();
+            for (int i = 0; i < DescriptorMessage.Fields.Count; i++)
+            {
+                t.Columns.Add(new DataColumn(DescriptorMessage.Fields[i].ColumnName, DescriptorMessage.OriginalTypes[i]));
+            }
+            foreach (CachedRow cr in cs.GetRows(DescriptorMessage, normalRange.StartTime, normalRange.EndTime, query.RemovedPredicates, inclusiveEnd))
+            {
+                t.Rows.Add(cr.Objects);
+            }
+
+            return t;
+        }
+
+        /// <summary>
+        /// Retrieves cached data
+        /// </summary>
+        /// <param name="query"></param>
+        /// <param name="inclusiveEnd"></param>
+        /// <returns></returns>
+        public IEnumerable<PostgresqlCommunicator.PGMessage> Get(Query.NormalizedQuery query, bool inclusiveEnd = true)
+        {
+            QueryRange normalRange = query.GetRange();
+
+            CacheSegment cs = UpdateQuery(query, normalRange);
+
+            return cs.Get(DescriptorMessage, normalRange.StartTime, normalRange.EndTime, query.RemovedPredicates, inclusiveEnd);
+        }
+
+        /// <summary>
+        /// Updates/Merges segments and returns the segment that CONTAINS the full range of data.
+        /// </summary>
+        /// <param name="query"></param>
+        /// <param name="normalRange"></param>
+        /// <returns></returns>
+        public CacheSegment UpdateQuery(Query.NormalizedQuery query, QueryRange normalRange)
+        {
+            CacheUsage.Add(DateTime.UtcNow);
+            CacheUsage.RemoveAll(d => d < DateTime.UtcNow.AddHours(-1));
+
+            List<QueryRange> needed = GetMissingRanges(normalRange, query.GetBucketTime(), query.UpdateWindow);
+
+            if (needed.Count > 0)
             {
                 // TODO: query new ranges + Merge/Create segments as needed
                 Trace("Found: {0} missing ranges", needed.Count);
-                foreach(QueryRange qr in needed)
+                foreach (QueryRange qr in needed)
                 {
                     Trace("Missing: {0} -> {1}", qr.StartTime.ToString("O"), qr.EndTime.ToString("O"));
 
-                    
+
                 }
                 foreach (QueryRange need in needed)
                 {
                     SetResults(_querier.CachedQuery(query, need), need.StartTime, need.EndTime);
                 }
-                
+
+                // Ensure we have minimal segmenation
+                MergeSegments();
             }
             else
             {
@@ -57,9 +121,13 @@ namespace TimeCacheNetworkServer.Caching
             }
 
             // Build list of data from existing segments
-
-
-            return null;
+            CacheSegment cs = _segments.FirstOrDefault(f => f.Contains(normalRange));
+            if (cs == null)
+            {
+                // This shouldn't happen unless we don't merge/query properly
+                throw new Exception("Failed to find valid segement for range");
+            }
+            return cs;
         }
 
         /// <summary>

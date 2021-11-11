@@ -68,25 +68,43 @@ namespace TimeCacheNetworkServer.Caching
             return Contains(range) || Enveloped(range) || OverlapsStart(range) || OverlapsEnd(range);
         }
 
+        /// <summary>
+        /// Checks to see if the range is CONTAINED or OVERLAPPEDSTART
+        /// Used for segment merging by ensuring our merges are in order
+        /// </summary>
+        /// <param name="range"></param>
+        /// <returns></returns>
         public bool OverlapsOrdered(QueryRange range)
         {
             return Contains(range) || OverlapsStart(range);
         }
 
-        private bool Enveloped(QueryRange range)
+        public bool Enveloped(QueryRange range)
         {
             return (DataStartTime >= range.StartTime && DataEndTime <= range.EndTime);
         }
 
-        private bool Contains(QueryRange range)
+        public bool Contains(QueryRange range)
         {
             return (DataStartTime <= range.StartTime && range.EndTime <= DataEndTime);
         }
-        private bool OverlapsStart(QueryRange range)
+
+        /// <summary>
+        /// True if range.start is within cache
+        /// </summary>
+        /// <param name="range"></param>
+        /// <returns></returns>
+        public bool OverlapsStart(QueryRange range)
         {
             return (DataStartTime <= range.StartTime && range.StartTime <= DataEndTime);
         }
-        private bool OverlapsEnd(QueryRange range)
+
+        /// <summary>
+        /// True if range.end is within cache
+        /// </summary>
+        /// <param name="range"></param>
+        /// <returns></returns>
+        public bool OverlapsEnd(QueryRange range)
         {
             return (DataStartTime <= range.EndTime && range.EndTime <= DataEndTime);
         }
@@ -224,9 +242,12 @@ namespace TimeCacheNetworkServer.Caching
                 //------[DS---cached data---DE]-------
                 //                    S-------*--E
                 // Need to get data from CacheEnd to QueryEnd
+
+                DateTime target = mergeTarget.CurrentData.Count > 0 ? mergeTarget.CurrentData[0].RawDate : mergeTarget.DataStartTime;
+
                 for (int i = CurrentData.Count() - 1; i >= 0; i--)
                 {
-                    if (CurrentData[i].RawDate <= mergeTarget.DataStartTime)
+                    if (CurrentData[i].RawDate < target)
                     {
                         break;
                     }
@@ -255,46 +276,6 @@ namespace TimeCacheNetworkServer.Caching
             Type timeType = table.Columns[timeIndex].DataType;
             DateTime start = PostgresqlCommunicator.Translator.GetDateTime(timeType, table.Rows[0], timeIndex).ToUniversalTime();
 
-            //if (queryStart < DataStartTime)
-            //{
-            //    DateTime qend = PostgresqlCommunicator.Translator.GetDateTime(timeType, table.Rows[table.Rows.Count - 1], timeIndex).ToUniversalTime();
-            //    VTrace("Existing query cache end: " + qend.ToString("O"));
-            //    while (CurrentData.Count > 0)
-            //    {
-            //        if (qend > CurrentData[0].RawDate)
-            //        {
-            //            Debug("Removing overlap date: " + CurrentData[0].RawDate.ToString("o"));
-            //            CurrentData.RemoveAt(0);
-            //        }
-            //        else
-            //        {
-            //            break;
-            //        }
-            //    }
-            //}
-            //if (queryEnd > DataEndTime)
-            //{
-            //    VTrace("query end exceed cache end time - merging results to end");
-            //    for (int i = CurrentData.Count() - 1; i >= 0; i--)
-            //    {
-            //        if (start > CurrentData[i].RawDate)
-            //        {
-            //            break;
-            //        }
-
-            //        // else overlap - remove the old data
-            //        CachedRow cr = CurrentData[i];
-            //        CurrentData.RemoveAt(i);
-            //        cr.TranslatedMessage.Release();
-            //        Debug("Removing overlap date: " + start.ToString("o"));
-            //    }
-
-            //}
-
-            //TrimStart(queryStart);
-
-            // Store raw data.
-           // List<CachedRow> rows = new List<CachedRow>(table.Rows.Count);
             foreach (DataRow dr in table.Rows)
             {
                 CachedRow cd = new CachedRow();
@@ -306,17 +287,105 @@ namespace TimeCacheNetworkServer.Caching
                 CurrentData.Add(cd);
             }
 
-            //if (queryStart < DataStartTime)
-            //    CurrentData.InsertRange(0, rows);
-            //else
-            //    CurrentData.AddRange(rows);
+            
+            DataStartTime = queryStart;
+            DataEndTime = queryEnd;
+        }
 
-            // Update stored dates to reflect added values
-            //if (queryStart < DataStartTime)
-                DataStartTime = queryStart;
+        /// <summary>
+        /// Retrieve all rows from the cache in the interval [start, end] inclusive
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <param name="predicates">List of predicates to filter on</param>
+        /// <param name="inclusiveEnd"></param>
+        /// <returns></returns>
+        public IEnumerable<CachedRow> GetRows(PostgresqlCommunicator.RowDescription rowDescriptor, DateTime start, DateTime end, List<Query.PredicateGroup> predicates, bool inclusiveEnd = true)
+        {
+            List<CachedRow> matched = new List<CachedRow>();
 
-            //if (queryEnd > DataEndTime)
-                DataEndTime = queryEnd;
+            //_timer.Restart();
+            int c = CurrentData.Count();
+
+            // Filter by time first
+
+            IEnumerable<CachedRow> filtered = inclusiveEnd ? CurrentData.Where(r => r.RawDate >= start && r.RawDate <= end)
+                                                               : CurrentData.Where(r => r.RawDate >= start && r.RawDate < end);
+            //long timeFilterMs = _timer.ElapsedMilliseconds;
+            //   VTrace("time filter took" + timeFilterMs);
+
+            int fc = filtered.Count();
+            Debug("Time filter reduced cachecount from " + c + " to " + fc);
+
+            // Filter by any predicates
+            // long startMs = _timer.ElapsedMilliseconds;
+            if (predicates != null)
+            {
+                foreach (Query.PredicateGroup pg in predicates)
+                {
+                    string terminatedKey = pg.Key + "\0";
+                    // Match by column
+                    int columnIndex = -1;
+                    for (int i = 0; i < rowDescriptor.Fields.Count; i++)
+                        if (rowDescriptor.Fields[i].ColumnName.Equals(terminatedKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            columnIndex = i;
+                            break;
+                        }
+                    if (columnIndex == -1)
+                        throw new Exception("Unable to locate filter column: " + pg.Key);
+
+                    Type t = rowDescriptor.OriginalTypes[columnIndex];
+
+                    object converted = ConvertPredicateValue(t, pg.Value);
+                    filtered = filtered.Where(f => f.Filter(columnIndex, converted));
+
+                    Debug("Filter predicate on [" + pg.Key + "=" + pg.Value + "] reduced count to" + filtered.Count());
+                    //long stopMs = _timer.ElapsedMilliseconds;
+                    //VTrace("Filter " + pg.Key + " took " + (stopMs - startMs));
+                    //startMs = stopMs;
+                }
+            }
+
+            matched.AddRange(filtered);
+
+            Debug("Filtered matches: " + matched.Count());
+
+            return matched;
+        }
+
+
+
+        /// <summary>
+        /// Retrieve all rows from the cache in the interval [start, end] inclusive
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <param name="predicates">List of predicates to filter on</param>
+        /// <param name="inclusiveEnd"></param>
+        /// <returns></returns>
+        public IEnumerable<PostgresqlCommunicator.PGMessage> Get(PostgresqlCommunicator.RowDescription rowDescriptor, DateTime start, DateTime end, List<Query.PredicateGroup> predicates, bool inclusiveEnd = true)
+        {
+            List<PostgresqlCommunicator.PGMessage> matched = new List<PostgresqlCommunicator.PGMessage>();
+            matched.Add(rowDescriptor);
+
+            matched.AddRange(GetRows(rowDescriptor, start, end, predicates, inclusiveEnd).Select(s => s.TranslatedMessage));
+
+            Debug("Filtered matches: " + matched.Count());
+
+            return matched;
+        }
+
+
+        public object ConvertPredicateValue(Type t, string value)
+        {
+            if (t == typeof(string))
+                return value;
+            else if (t == typeof(int))
+                return int.Parse(value);
+            else if (t == typeof(double))
+                return double.Parse(value);
+            throw new Exception("Unsupported predicate filter type: " + t.ToString());
         }
 
         /// <summary>

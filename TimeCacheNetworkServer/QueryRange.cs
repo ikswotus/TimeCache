@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TimeCacheNetworkServer.Caching
+namespace TimeCacheNetworkServer
 {
     /// <summary>
     /// Represents a range of time we need to query

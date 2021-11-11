@@ -278,6 +278,7 @@ namespace TimeCacheNetworkServer
                 }
                 else // Dummy auth
                 {
+                    Debug("Dummy authentication only");
                     AuthenticationMD5Password am = new AuthenticationMD5Password();
                     Random r = new Random();
                     r.NextBytes(am.Salt);
@@ -370,14 +371,18 @@ namespace TimeCacheNetworkServer
                                     }
                                     else
                                     {
-                                        messageList.AddRange(qm.CachedQuery(query));
+                                        messageList.AddRange(res);
                                     }
                                 }
                                 else
+                                {
+                                    Debug("Meta-Only query received, caching results");
                                     qm.CachedQuery(query, false);
+                                }
                             }
                             else
                             {
+                                Trace("Not allowed to cache: Simple query");
                                 messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
                             }
 

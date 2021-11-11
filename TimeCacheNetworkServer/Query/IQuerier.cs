@@ -23,7 +23,7 @@ namespace TimeCacheNetworkServer.Query
         /// <param name="normalized"></param>
         /// <param name="range"></param>
         /// <returns></returns>
-        DataTable CachedQuery(NormalizedQuery normalized, Caching.QueryRange range);
+        DataTable CachedQuery(NormalizedQuery normalized, QueryRange range);
     }
 
     /// <summary>
@@ -43,7 +43,7 @@ namespace TimeCacheNetworkServer.Query
             return Utils.Postgresql.TableManager.GetTable(_connectionString, query);
         }
 
-        public DataTable CachedQuery(NormalizedQuery normalized, Caching.QueryRange range)
+        public DataTable CachedQuery(NormalizedQuery normalized, QueryRange range)
         {
             string query = normalized.QueryToExecute(range);
 
@@ -72,7 +72,7 @@ namespace TimeCacheNetworkServer.Query
             return _table;
         }
 
-        public DataTable CachedQuery(NormalizedQuery normalized, Caching.QueryRange range)
+        public DataTable CachedQuery(NormalizedQuery normalized, QueryRange range)
         {
             return _table;
         }
