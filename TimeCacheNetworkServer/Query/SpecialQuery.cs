@@ -29,8 +29,10 @@ namespace TimeCacheNetworkServer
 
             Start = DateTime.MinValue;
             End = DateTime.MaxValue;
+            
         }
 
+        
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
         public String Command { get; set; }

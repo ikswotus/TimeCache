@@ -24,11 +24,15 @@ namespace TimeCacheNetworkServer.Caching
         /// </summary>
         /// <param name="querier"></param>
         /// <param name="logger"></param>
-        public SegmentManager(Query.IQuerier querier, SLog.ISLogger logger)
+        /// <param name="tag">Friendly tag to identify query</param>
+        public SegmentManager(Query.IQuerier querier, SLog.ISLogger logger, string tag)
             : base("SegmentManager", logger)
         {
+            _tag = tag;
             _querier = querier;
         }
+
+        private readonly string _tag;
 
         /// <summary>
         /// Cached data will identify when it is used, so the eviction mechanism
@@ -45,7 +49,7 @@ namespace TimeCacheNetworkServer.Caching
             }
         }
 
-
+        
         public DataTable GetTable(Query.NormalizedQuery query, bool inclusiveEnd = true)
         {
 
@@ -213,7 +217,7 @@ namespace TimeCacheNetworkServer.Caching
             if(table.Rows.Count == 0)
             {
                 Debug("0 row count?");
-                return;
+               // return;
             }
 
             if (_timeIndex == -1)
@@ -240,6 +244,11 @@ namespace TimeCacheNetworkServer.Caching
             
         }
 
+        public List<SegmentSummary> GetSegmentSummaries()
+        {
+            return _segments.Select(s => new SegmentSummary(_tag, s.DataStartTime, s.DataEndTime, s.Count())).ToList();
+        }
+
         /// <summary>
         /// Pool the cached rows.
         /// </summary>
@@ -259,5 +268,22 @@ namespace TimeCacheNetworkServer.Caching
         /// Current segments
         /// </summary>
         private List<CacheSegment> _segments = new List<CacheSegment>(1);
+    }
+
+
+    public class SegmentSummary
+    {
+        public SegmentSummary(string tag, DateTime start, DateTime end, long count)
+        {
+            Tag = tag;
+            Start = start;
+            End = end;
+            Count = count;
+        }
+
+        public long Count { get; private set; }
+        public DateTime End { get; private set; }
+        public DateTime Start { get; private set; }
+        public string Tag { get; private set; }
     }
 }

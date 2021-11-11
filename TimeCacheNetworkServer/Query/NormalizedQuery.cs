@@ -31,7 +31,8 @@ namespace TimeCacheNetworkServer.Query
             UpdateWindow = TimeSpan.FromMinutes(5);
           
             AllowCache = true;
-            MetaOnly = false;
+            ReturnMetaOnly = false;
+            ExecuteMetaOnly = false;
             Replacements = new Dictionary<string, string>();
 
             Tag = null;
@@ -143,9 +144,14 @@ namespace TimeCacheNetworkServer.Query
         public TimeSpan UpdateWindow { get; set; }
 
         /// <summary>
-        /// If true, the actual query is not evaluated, only the associated meta-commands will be executed.
+        /// If true, the actual query results are not returned.
         /// </summary>
-        public bool MetaOnly { get; set; }
+        public bool ReturnMetaOnly { get; set; }
+
+        /// <summary>
+        /// If true, the meta query is evaluated, and the actual query is ignored.
+        /// </summary>
+        public bool ExecuteMetaOnly { get; set; }
 
         /// <summary>
         /// True if we identified timestamps

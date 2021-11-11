@@ -41,7 +41,13 @@ namespace TimeCacheNetworkServer
         /// <returns></returns>
         public static string GetQueryTag(string query)
         {
-            Match m = QueryTagRegex.Match(query);
+            string q = query;
+            int index = query.IndexOf("extract(epoch from");
+            if (index > 0)
+                index += "extract(epoch from".Length;
+            else
+                index = 0;
+            Match m = QueryTagRegex.Match(query, index);
             if (m.Success)
             {
                 lock (_tagSync)

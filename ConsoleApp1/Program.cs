@@ -19,25 +19,28 @@ namespace ConsoleApp1
         {
             try
             {
-                string connString = "Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;";
+                string query = @"";
 
-                SLog.SLogger slog = new SLog.SLogger("Testing");
 
-                DatabaseQuerier dq = new DatabaseQuerier(connString);
+//                string connString = "Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;";
 
-                SegmentManager sm = new SegmentManager(dq, slog);
+//                SLog.SLogger slog = new SLog.SLogger("Testing");
+
+//                DatabaseQuerier dq = new DatabaseQuerier(connString);
+
+//                SegmentManager sm = new SegmentManager(dq, slog);
 
                 
 
-                string query = @"select machine_name, time_bucket('60.0s',sample_time) AS time, avg(current_value)
-from stats.timeseries_data_id
-inner join stats.machines on machines.id = machine_id
-where sample_time BETWEEN '2021-11-11T13:43:52.004Z' AND '2021-11-11T14:13:52.004Z'
-group by 1,2
-order by 2 asc";
+//                string query = @"select machine_name, time_bucket('60.0s',sample_time) AS time, avg(current_value)
+//from stats.timeseries_data_id
+//inner join stats.machines on machines.id = machine_id
+//where sample_time BETWEEN '2021-11-11T13:43:52.004Z' AND '2021-11-11T14:13:52.004Z'
+//group by 1,2
+//order by 2 asc";
 
 
-                Console.WriteLine("TAG: " + ParsingUtils.GetQueryTag(query));
+//                Console.WriteLine("TAG: " + ParsingUtils.GetQueryTag(query));
 
                 //NormalizedQuery nq = QueryParser.NormalizeQuery(query);
                 //Console.WriteLine(nq.NormalizedQueryText);

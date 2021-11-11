@@ -66,8 +66,15 @@ namespace TimeCacheNetworkServer.Query
             }
 
             /**
+             * Overall format should be:
+             * [METACOMMANDS]
+             * {OPTIONS}
+             *  QUERY
+             * 
+             * Where:
+             * 
              * Meta-command format
-             * [{command,(params)}] query
+             * [{command,(params)}]
              * 
              * 
              */
@@ -175,8 +182,10 @@ namespace TimeCacheNetworkServer.Query
                                     break;
                                 case "metaonly":
                                 case "metadataonly":
-                                    query.MetaOnly = bool.Parse(namedOpts[1]);
+                                    query.ReturnMetaOnly = bool.Parse(namedOpts[1]);
+                                    query.ExecuteMetaOnly = query.ReturnMetaOnly;
                                     break;
+                                
                                 case "replace":
                                     // expect 2 'values' comma-separated
                                     string[] vals = namedOpts[1].Split(',');

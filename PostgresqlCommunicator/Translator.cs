@@ -164,6 +164,11 @@ namespace PostgresqlCommunicator
                 Decimal d = (Decimal)o;
                 return Encoding.ASCII.GetBytes(d.ToString("G20"));
             }
+            else if (t == typeof(Int64))
+            {
+                Int64 i = (Int64)o;
+                return Encoding.ASCII.GetBytes(i.ToString("G20"));
+            }
             throw new Exception("Unsupported conversion type: " + t);
         }
 
@@ -191,6 +196,8 @@ namespace PostgresqlCommunicator
             {typeof(String), 25 },
             {typeof(Double), 701},
             {typeof(int), 23 },
+            {typeof(long), 20},
+         //   {typeof(Int64), 20 },
             // Lie - we'll convert datetime to doubles
             {typeof(DateTime), 701},
 
@@ -206,6 +213,7 @@ namespace PostgresqlCommunicator
         {
             {25, typeof(String) },
             {701, typeof(Double)},
+            {20, typeof(long) },
             {23, typeof(int)}, 
             {1184, typeof(DateTime)},
             {1700, typeof(float) },
@@ -222,6 +230,8 @@ namespace PostgresqlCommunicator
             {typeof(String), -1 },
             {typeof(Double), 8},
             {typeof(int), 4 },
+            {typeof(long), 8 },
+          //  {typeof(Int64), 8 },
             // Lie - we'll convert datetime to doubles
             {typeof(DateTime), 8},
 

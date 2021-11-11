@@ -24,7 +24,7 @@ namespace TimeCacheNetworkServer
         /// <param name="query"></param>
         /// <param name="qm"></param>
         /// <returns></returns>
-        public static IEnumerable<PGMessage> HandleSpecial(SpecialQuery query, QueryManager qm)
+        public static IEnumerable<PGMessage> HandleSpecial(SpecialQuery query, QueryManager qm, Query.NormalizedQuery sourceQuery)
         {
             if (string.Equals(query.Command, "regress", StringComparison.OrdinalIgnoreCase))
             {
@@ -454,6 +454,38 @@ namespace TimeCacheNetworkServer
                     }
                 }
                 return ret;
+            }
+            else if (string.Equals(query.Command, "cache_segments", StringComparison.OrdinalIgnoreCase))
+            {
+                /**
+                 * Retrieves an overview of the current cached segments.
+                 * For each segment, a line is returned from DataStart to DataEnd.
+                 * The height (value) of the line will be the # of rows within the segment.
+                 * 
+                 * For now, all segments will be returned. Additional filtering by tag/source
+                 * would be useful at some point...
+                 */
+                List<Caching.SegmentSummary> segments = qm.GetSegmentSummaries();
+
+                List<PGMessage> ret = new List<PGMessage>();
+                if(sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
+                {
+                    List<Translator.NamedColumns> cols = new List<Translator.NamedColumns>();
+                    cols.Add(new Translator.NamedColumns() { Name = "tag", ValueType = typeof(string) });
+                    cols.Add(new Translator.NamedColumns() { Name = "time", ValueType = typeof(DateTime) });
+                    cols.Add(new Translator.NamedColumns() { Name = "value", ValueType = typeof(Int64) });
+                    RowDescription rd = Translator.BuildRowDescription(cols);
+                    ret.Add(rd);
+                }
+                
+
+                foreach (Caching.SegmentSummary cs in segments.Where(c => c.Start >= query.Start && c.End <= query.End))
+                {
+                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.Start, cs.Count }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.End, cs.Count }));
+                }
+                return ret;
+
             }
             //else if(string.Equals(query.Command, "cluster", StringComparison.OrdinalIgnoreCase))
             //{

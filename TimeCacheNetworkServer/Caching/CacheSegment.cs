@@ -25,6 +25,11 @@ namespace TimeCacheNetworkServer.Caching
             CurrentData = new List<CachedRow>();
         }
 
+        public long Count()
+        {
+            return CurrentData.LongCount();
+        }
+
         public void Clear()
         {
             Trace("Clearing segment");
@@ -274,7 +279,7 @@ namespace TimeCacheNetworkServer.Caching
         public void AddData(DataTable table, DateTime queryStart, DateTime queryEnd, int timeIndex)
         {
             Type timeType = table.Columns[timeIndex].DataType;
-            DateTime start = PostgresqlCommunicator.Translator.GetDateTime(timeType, table.Rows[0], timeIndex).ToUniversalTime();
+          //  DateTime start = PostgresqlCommunicator.Translator.GetDateTime(timeType, table.Rows[0], timeIndex).ToUniversalTime();
 
             foreach (DataRow dr in table.Rows)
             {

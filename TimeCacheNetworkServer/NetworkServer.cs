@@ -362,7 +362,7 @@ namespace TimeCacheNetworkServer
 
                             if (query.AllowCache)
                             {
-                                if (!query.MetaOnly)
+                                if (!query.ReturnMetaOnly)
                                 {
                                     IEnumerable<PGMessage> res = qm.CachedQuery(query);
                                     if (res == null)
@@ -376,8 +376,9 @@ namespace TimeCacheNetworkServer
                                 }
                                 else
                                 {
-                                    Debug("Meta-Only query received, caching results");
-                                    qm.CachedQuery(query, false);
+                                    Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
+                                    if(!query.ExecuteMetaOnly)
+                                        qm.CachedQuery(query, false);
                                 }
                             }
                             else
@@ -397,7 +398,7 @@ namespace TimeCacheNetworkServer
 
                                 foreach (SpecialQuery special in query.MetaCommands)
                                 {
-                                    IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm);
+                                    IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
                                     if (messages == null)
                                         continue;
                                     spList.AddRange(messages);

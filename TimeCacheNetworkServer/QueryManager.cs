@@ -471,7 +471,7 @@ namespace TimeCacheNetworkServer
                 if (!_queryCache.ContainsKey(query.NormalizedQueryText))
                 {
                     string tag = string.IsNullOrEmpty(query.QueryTag) ? ParsingUtils.GetQueryTag(query.NormalizedQueryText) : query.QueryTag;
-                    _queryCache[query.NormalizedQueryText] = new Caching.SegmentManager(this, _logger);
+                    _queryCache[query.NormalizedQueryText] = new Caching.SegmentManager(this, _logger, tag);
                 }
                 cache = _queryCache[query.NormalizedQueryText];
             }
@@ -480,6 +480,24 @@ namespace TimeCacheNetworkServer
             return cache;
         }
 
+        /// <summary>
+        /// Retrieve a summary of all data in the all caches
+        /// </summary>
+        /// <returns></returns>
+        public List<SegmentSummary> GetSegmentSummaries()
+        {
+            List<SegmentSummary> ret = new List<SegmentSummary>();
+            lock (_queryCache)
+            {
+                foreach(string k in _queryCache.Keys)
+                {
+                    SegmentManager sm = _queryCache[k];
+                    lock (sm)
+                        ret.AddRange(sm.GetSegmentSummaries());
+                }
+            }
+            return ret;
+        }
         /// <summary>
         /// Executes a query utilizing our cache.
         /// </summary>
