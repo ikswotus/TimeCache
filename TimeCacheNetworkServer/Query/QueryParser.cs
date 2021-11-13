@@ -265,7 +265,10 @@ namespace TimeCacheNetworkServer.Query
             Match bucketMatch = ParsingUtils.TimeBucketRegex.Match(query.OriginalQueryText);
             if (bucketMatch.Success)
             {
-                query.BucketingInterval = bucketMatch.Groups["duration"].Value;
+                if(bucketMatch.Groups["duration"].Success)
+                    query.BucketingInterval = bucketMatch.Groups["duration"].Value;
+                if (bucketMatch.Groups["duration_sec"].Success)
+                    query.BucketingInterval = bucketMatch.Groups["duration_sec"].Value + "s";
             }
 
 

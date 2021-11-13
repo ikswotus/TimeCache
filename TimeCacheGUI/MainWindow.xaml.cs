@@ -134,7 +134,14 @@ namespace TimeCacheGUI
                     if (String.IsNullOrEmpty(PortTB.Text) || !int.TryParse(PortTB.Text, out port))
                         port = 5433;
                     _logger.Debug("MainWindow", "Chosen port: " + port.ToString());
-                    _server = new TimeCacheNetworkServer.NetworkServer(Properties.Settings.Default.DBConnectionString, port, _logger);
+
+                    System.Net.IPAddress serverAddr = null;
+                    if (!string.IsNullOrEmpty(Properties.Settings.Default.AuthIP))
+                        serverAddr = System.Net.IPAddress.Parse(Properties.Settings.Default.AuthIP);
+
+                    int pgPort = Properties.Settings.Default.PostgresqlPort;
+
+                    _server = new TimeCacheNetworkServer.NetworkServer(Properties.Settings.Default.DBConnectionString, serverAddr, pgPort, port, _logger);
 
                     _server.Start();
 

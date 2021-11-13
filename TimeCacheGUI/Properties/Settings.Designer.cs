@@ -46,5 +46,29 @@ namespace TimeCacheGUI.Properties {
                 this["Port"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("192.168.1.7")]
+        public string AuthIP {
+            get {
+                return ((string)(this["AuthIP"]));
+            }
+            set {
+                this["AuthIP"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5432")]
+        public int PostgresqlPort {
+            get {
+                return ((int)(this["PostgresqlPort"]));
+            }
+            set {
+                this["PostgresqlPort"] = value;
+            }
+        }
     }
 }

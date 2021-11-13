@@ -176,7 +176,7 @@ namespace PostgresqlCommunicator.Auth
         /// <param name="serverSocket">Postgresql socket</param>
         /// <param name="clientSocket">client socket (ie grafana)</param>
         /// <param name="errorDir"></param>
-        public static void ForwardAuthenticate(Socket serverSocket, Socket clientSocket, PostgresqlCommunicator.StartupMessage startMessage, string errorDir = null)
+        public static void ForwardAuthenticate(Socket serverSocket, Socket clientSocket, PostgresqlCommunicator.StartupMessage startMessage, string errorDir = null, bool handleSimple = true)
         {
             if (serverSocket == null || !serverSocket.Connected)
                 throw new ArgumentException("Invalid server socket", nameof(serverSocket));
@@ -288,13 +288,15 @@ namespace PostgresqlCommunicator.Auth
             successBlock.Send(clientSocket);
 
             // Receive simple query
-            ret = clientSocket.Receive(buffer);
-           // PostgresqlCommunicator.SimpleQuery simple = HandleMessage<PostgresqlCommunicator.SimpleQuery>(ret, buffer, out bufferPosition, 0, errorDir);
-          //  Console.WriteLine("Received simple query: " + simple.Query);
-            serverSocket.Send(buffer, ret, SocketFlags.None);
-            ret = serverSocket.Receive(buffer);
-            clientSocket.Send(buffer, ret, SocketFlags.None);
-
+            if (handleSimple)
+            {
+                ret = clientSocket.Receive(buffer);
+                // PostgresqlCommunicator.SimpleQuery simple = HandleMessage<PostgresqlCommunicator.SimpleQuery>(ret, buffer, out bufferPosition, 0, errorDir);
+                //  Console.WriteLine("Received simple query: " + simple.Query);
+                serverSocket.Send(buffer, ret, SocketFlags.None);
+                ret = serverSocket.Receive(buffer);
+                clientSocket.Send(buffer, ret, SocketFlags.None);
+            }
         }
 
 

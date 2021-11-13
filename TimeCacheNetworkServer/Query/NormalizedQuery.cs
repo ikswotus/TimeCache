@@ -163,7 +163,9 @@ namespace TimeCacheNetworkServer.Query
 
         public QueryRange GetRange()
         {
-            return new QueryRange(StartTime, EndTime);
+            TimeSpan ts = GetBucketTime();
+            
+            return new QueryRange(ParsingUtils.RoundInterval(ts, StartTime), ParsingUtils.CeilingInterval(ts, EndTime));
         }
 
         public string QueryStartTime { get; set; }

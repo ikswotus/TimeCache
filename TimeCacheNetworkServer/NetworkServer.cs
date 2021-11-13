@@ -43,21 +43,38 @@ namespace TimeCacheNetworkServer
         /// <param name="port">Port to listen on, defaults to 5433</param>
         /// <param name="logger">Log instance to use</param>
         public NetworkServer(string connectionString, int port, SLog.ISLogger logger)
-            : base("TimeCacheNetworkServer", logger)
+            : this(connectionString,null, -1, port, logger)
         {
-            _connectionString = connectionString;
-            _port = port;
         }
 
         public NetworkServer(IPAddress pgIP, int port, int pgPort) 
-            : this (null, port, new SLog.SLogger("TimeCacheNetworkServer"))
+            : this (null,pgIP, pgPort, port, new SLog.SLogger("TimeCacheNetworkServer"))
         {
-            _postgresPort = pgPort;
-            _postgresIP = pgIP;
-            _connectionString = null;
-            _port = port;
         }
 
+   
+        /// <summary>
+        /// Full connection string
+        /// </summary>
+        /// <param name="connectionString"></param>
+        /// <param name="pgAuthIP"></param>
+        /// <param name="pgPort"></param>
+        /// <param name="serverPort"></param>
+        /// <param name="logger"></param>
+        public NetworkServer(string connectionString, IPAddress pgAuthIP, int pgPort, int serverPort, SLog.ISLogger logger)
+            : base("TimeCacheNetworkServer", logger)
+        {
+
+            _postgresPort = pgPort;
+            _postgresIP = pgAuthIP;
+
+            _connectionString = connectionString;
+            _port = serverPort;
+        }
+
+        /// <summary>
+        /// Port for postgresql auth connections
+        /// </summary>
         private readonly int _postgresPort = 5432;
 
         /// <summary>
@@ -66,7 +83,7 @@ namespace TimeCacheNetworkServer
         private readonly IPAddress _postgresIP = null;
 
         /// <summary>
-        /// Port listening on
+        /// Port server will be listening on
         /// </summary>
         private readonly int _port = 5433;
 
@@ -265,7 +282,7 @@ namespace TimeCacheNetworkServer
                 long sent = 0;
                 if (_postgresIP != null)
                 {
-
+                    Debug("Attempting to forward authentication to : " + _postgresIP);
                     Socket serverSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
                     IPEndPoint pgEndPoint = new IPEndPoint(_postgresIP, _postgresPort);
@@ -273,8 +290,9 @@ namespace TimeCacheNetworkServer
                     serverSock.Connect(pgEndPoint);
 
 
-                    PostgresqlCommunicator.Auth.SCRAM.ForwardAuthenticate(serverSock, s, sm, null);
+                    PostgresqlCommunicator.Auth.SCRAM.ForwardAuthenticate(serverSock, s, sm, null, false);
 
+                    Debug("Authentication successful - accepting queries");
                 }
                 else // Dummy auth
                 {

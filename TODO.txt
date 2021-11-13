@@ -6,6 +6,7 @@ Caching
 -> Segmentation
 -> Assume 'ordered' data (option)
 -> Select * from cache where tag = 'x'
+-> Select * from segments
 
 Meta-Commands
 -> Clustering (KMeans++)
