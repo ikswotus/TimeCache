@@ -43,16 +43,16 @@ namespace TimeCacheNetworkServer
         /// <param name="port">Port to listen on, defaults to 5433</param>
         /// <param name="logger">Log instance to use</param>
         public NetworkServer(string connectionString, int port, SLog.ISLogger logger)
-            : this(connectionString,null, -1, port, logger)
+            : this(connectionString, null, -1, port, logger)
         {
         }
 
-        public NetworkServer(IPAddress pgIP, int port, int pgPort) 
-            : this (null,pgIP, pgPort, port, new SLog.SLogger("TimeCacheNetworkServer"))
+        public NetworkServer(IPAddress pgIP, int port, int pgPort)
+            : this(null, pgIP, pgPort, port, new SLog.SLogger("TimeCacheNetworkServer"))
         {
         }
 
-   
+
         /// <summary>
         /// Full connection string
         /// </summary>
@@ -336,145 +336,172 @@ namespace TimeCacheNetworkServer
 
                 while (!_stop)
                 {
-                    while (s.Available <= 0 && s.Connected)
-                        Thread.Sleep(500);
-
-                    Trace("Receiving");
-                    bytes = s.Receive(buffer);
-
-
-                    connInfo.LastActivity = DateTime.UtcNow;
-                    connInfo.QueriesEvaluated++;// TODO: Might be more than one in the payload.
-
-                    if (bytes == 0)
+                    try
                     {
-                        Debug("Exiting connection loop: 0 bytes received");
-                        break;// TODO: Weird loops when grafana gets hung up on something...
-                    }
+                        while (s.Available <= 0 && s.Connected)
+                            Thread.Sleep(500);
 
-                    Debug("Received {0} bytes: " + DateTime.UtcNow.ToString("O"), bytes);
-                    // Simple query
-                    for (int i = 0; i < bytes; i++)
-                    {
-                        byte pType = buffer[i];
+                        Trace("Receiving");
+                        bytes = s.Receive(buffer);
 
-                        if (pType == PGTypes.SimpleQuery)
+
+                        connInfo.LastActivity = DateTime.UtcNow;
+                        connInfo.QueriesEvaluated++;// TODO: Might be more than one in the payload.
+
+                        if (bytes == 0)
                         {
-                            System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
-                            sw.Start();
+                            Debug("Exiting connection loop: 0 bytes received");
+                            break;// TODO: Weird loops when grafana gets hung up on something...
+                        }
 
-                            // Get Length
-                            int length = (buffer[i + 1] << 24 | buffer[i + 2] << 16 | buffer[i + 3] << 8 | buffer[i + 4]);
-                            length -= 4;
-                            //Console.WriteLine("Length: " + length);
-                            int index = i + 5;
+                        Debug("Received {0} bytes: " + DateTime.UtcNow.ToString("O"), bytes);
+                        // Simple query
+                        for (int i = 0; i < bytes; i++)
+                        {
+                            byte pType = buffer[i];
 
-                            // Parsing Test
-                            PostgresqlCommunicator.SimpleQuery sq = new PostgresqlCommunicator.SimpleQuery(buffer, index, length);
-                            Debug("Received query: [" + sq.Query + "]");
-
-                            Query.NormalizedQuery query = qp.Normalize(sq.Query);
-                           
-
-                            List<PGMessage> messageList = new List<PGMessage>();
-
-                            if (query.AllowCache)
+                            if (pType == PGTypes.SimpleQuery)
                             {
-                                if (!query.ReturnMetaOnly)
+                                System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+                                sw.Start();
+
+                                // Get Length
+                                int length = (buffer[i + 1] << 24 | buffer[i + 2] << 16 | buffer[i + 3] << 8 | buffer[i + 4]);
+                                length -= 4;
+                                //Console.WriteLine("Length: " + length);
+                                int index = i + 5;
+
+                                // Parsing Test
+                                PostgresqlCommunicator.SimpleQuery sq = new PostgresqlCommunicator.SimpleQuery(buffer, index, length);
+                                Debug("Received query: [" + sq.Query + "]");
+
+                                Query.NormalizedQuery query = qp.Normalize(sq.Query);
+
+
+                                List<PGMessage> messageList = new List<PGMessage>();
+
+                                if (query.AllowCache)
                                 {
-                                    IEnumerable<PGMessage> res = qm.CachedQuery(query);
-                                    if (res == null)
+                                    if (!query.ReturnMetaOnly)
                                     {
-                                        Error("Cached query returned null?");
+                                        IEnumerable<PGMessage> res = qm.CachedQuery(query);
+                                        if (res == null)
+                                        {
+                                            Error("Cached query returned null?");
+                                        }
+                                        else
+                                        {
+                                            messageList.AddRange(res);
+                                        }
                                     }
                                     else
                                     {
-                                        messageList.AddRange(res);
+                                        Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
+                                        if (!query.ExecuteMetaOnly)
+                                            qm.CachedQuery(query, false);
                                     }
                                 }
                                 else
                                 {
-                                    Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
-                                    if(!query.ExecuteMetaOnly)
-                                        qm.CachedQuery(query, false);
+                                    Trace("Not allowed to cache: Simple query");
+                                    messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
                                 }
-                            }
-                            else
-                            {
-                                Trace("Not allowed to cache: Simple query");
-                                messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
-                            }
 
-                            if (query.MetaCommands.Count == 0)
-                            {
-                                messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
-                                messageList.Add(new ReadyForQuery());
-                            }
-                            else
-                            {
-                                List<PGMessage> spList = new List<PGMessage>();
-
-                                foreach (SpecialQuery special in query.MetaCommands)
+                                if (query.MetaCommands.Count == 0)
                                 {
-                                    IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
-                                    if (messages == null)
-                                        continue;
-                                    spList.AddRange(messages);
+                                    messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
+                                    messageList.Add(new ReadyForQuery());
+                                }
+                                else
+                                {
+                                    List<PGMessage> spList = new List<PGMessage>();
+
+                                    foreach (SpecialQuery special in query.MetaCommands)
+                                    {
+                                        IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
+                                        if (messages == null)
+                                            continue;
+                                        spList.AddRange(messages);
+                                    }
+
+                                    spList.Add(new CommandCompletion("SELECT 1"));
+                                    spList.Add(new ReadyForQuery());
+
+                                    NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(spList);
+                                    long sb = sPmess.Send(s);
+                                    // byte[] payload = ProtocolBuilder.BuildResponse(spList);
+
+                                    // Send select result
+                                    Debug("Sending special response");
+                                    //int sb = s.Send(payload);
+                                    //Trace("Sent: " + sb + ", " + payload.Length);
+                                    Trace("Sent: " + sb);
                                 }
 
-                                spList.Add(new CommandCompletion("SELECT 1"));
-                                spList.Add(new ReadyForQuery());
+                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
+                                sent = message.Send(s);
+                                message = null;
 
-                                NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(spList);
-                                long sb = sPmess.Send(s);
-                                // byte[] payload = ProtocolBuilder.BuildResponse(spList);
+                                sw.Stop();
+                                VTrace("TotalTime: " + sw.ElapsedMilliseconds.ToString());
 
-                                // Send select result
-                                Debug("Sending special response");
-                                //int sb = s.Send(payload);
-                                //Trace("Sent: " + sb + ", " + payload.Length);
-                                Trace("Sent: " + sb);
+                                i += (length + 5);
+                            }
+                            else
+                            {
+                                Critical("Unhandled type: " + PGTypes.GetType(pType));
                             }
 
-                            NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
-                            sent = message.Send(s);
-                            message = null;
 
-                            sw.Stop();
-                            VTrace("TotalTime: " + sw.ElapsedMilliseconds.ToString());
 
-                            i += (length + 5);
+
                         }
-                        else
-                        {
-                            Critical("Unhandled type: " + PGTypes.GetType(pType));
-                        }
-
-                       
-
-
+                        Trace("Bytes handled: " + bytes);
+                        s.ReceiveTimeout = 0;
                     }
-                    Trace("Bytes handled: " + bytes);
-                    s.ReceiveTimeout = 0;
+
+                    catch (Npgsql.NpgsqlException npgExc)
+                    {
+                        Error("Failure: " + npgExc.ToString());
+                        // Attempt to forward message details
+                        try
+                        {
+                            PostgresqlCommunicator.ErrorResponseMessage erm = new ErrorResponseMessage();
+                            erm.Severity = npgExc.Data["Severity"] as string;
+                            erm.Code = npgExc.Data["SqlState"].ToString();
+                            erm.Message = npgExc.Data["MessageText"] as string;
+                            erm.Position = npgExc.Data["Position"].ToString();
+                            erm.File = npgExc.Data["File"] as string;
+                            erm.Line = npgExc.Data["Line"].ToString();
+                            erm.Routine = npgExc.Data["Routine"] as string;
+
+                            List<PGMessage> response = new List<PGMessage>() { erm, new ReadyForQuery() };
+                            NetworkMessage errorResp = ProtocolBuilder.BuildResponseMessage(response);
+                            errorResp.Send(s);
+                        }
+                        catch (Exception exc)
+                        {
+                            Critical("Failed to send error response message:" + exc.ToString());
+                            throw exc;
+                        }
+                    }
                 }
-            
+
+
             }
             catch (ThreadAbortException)
             {
                 // Ignore
-                if(connInfo != null)
+                if (connInfo != null)
                     Trace("Thread abort: " + connInfo.RemoteAddress);
             }
+
             catch (Exception exc)
             {
                 Error("Failure in socket handler: " + exc);
-#if DEBUG
-                Console.WriteLine("Failure in socket handler: " + exc);
-#endif
             }
             finally
             {
-
                 if (connInfo != null)
                     lock (_connections)
                         _connections.Remove(connInfo);
@@ -486,13 +513,13 @@ namespace TimeCacheNetworkServer
                     s.Shutdown(SocketShutdown.Both);
                     s.Close();
                 }
-                catch(Exception exc)
+                catch (Exception exc)
                 {
                     Error("Failure closing socket(" + (connInfo != null ? connInfo.RemoteAddress + ")" : "unknown)") + exc);
                 }
             }
         }
 
-      
+
     }
 }

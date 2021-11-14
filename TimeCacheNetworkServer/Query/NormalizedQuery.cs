@@ -23,7 +23,6 @@ namespace TimeCacheNetworkServer.Query
 
             MetaCommands = new List<SpecialQuery>();
 
-
             Timeout = 120;
             UpdateInterval = TimeSpan.FromMinutes(1);
             CheckBucketDuration = true;
@@ -161,6 +160,10 @@ namespace TimeCacheNetworkServer.Query
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
 
+        /// <summary>
+        /// Return the range covered by this query, adjusting for bucket
+        /// </summary>
+        /// <returns></returns>
         public QueryRange GetRange()
         {
             TimeSpan ts = GetBucketTime();
@@ -168,14 +171,27 @@ namespace TimeCacheNetworkServer.Query
             return new QueryRange(ParsingUtils.RoundInterval(ts, StartTime), ParsingUtils.CeilingInterval(ts, EndTime));
         }
 
+        /// <summary>
+        /// Original query capture
+        /// </summary>
         public string QueryStartTime { get; set; }
+        /// <summary>
+        /// original query capture
+        /// </summary>
         public string QueryEndTime { get; set; }
 
+
+        public string QueryToExecute()
+        {
+            return QueryToExecute(GetRange());
+        }
 
         public string QueryToExecute(DateTime start, DateTime end)
         {
             return NormalizedQueryText.Replace(QueryParser.TimePlaceholderStart, start.ToString(QueryParser.TimestampToStringFormat)).Replace(QueryParser.TimePlaceholderEnd, end.ToString(QueryParser.TimestampToStringFormat));
         }
+
+
 
         public string QueryToExecute(TimeCacheNetworkServer.QueryRange qr)
         {

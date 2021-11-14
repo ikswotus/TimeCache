@@ -10,26 +10,81 @@ namespace PostgresqlCommunicator
 {
     /// <summary>
     /// Encapsulates error messages
+    /// 
+    /// Seems to be a series of null terminated strings followed by a null byte
     /// </summary>
     public class ErrorResponseMessage : PGMessage
     {
         public ErrorResponseMessage()
         {
+            MessageType = PGTypes.ErrorResponse;
 
+            Text = "ERROR";
         }
+
+        public string Severity { get; set; }
+        public string Text { get; set; }
+        public string Code { get; set; }
+        public string Message { get; set; }
+        public string Position { get; set; }
+        public string File { get; set; }
+        public string Line { get; set; }
+        public string Routine { get; set; }
+        
 
         protected override void DoWriteTo(ByteWrapper dest)
         {
-            throw new NotImplementedException();
+            dest.Write(GetStringBytes2("S" + Severity));
+            dest.Write(GetStringBytes2("V" + Text));
+            dest.Write(GetStringBytes2("C" + Code));
+            dest.Write(GetStringBytes2("M" + Message));
+            dest.Write(GetStringBytes2("P" + Position));
+            dest.Write(GetStringBytes2("F" + File));
+            dest.Write(GetStringBytes2("L" + Line));
+            dest.Write(GetStringBytes2("R" + Routine));
+
+            dest.Write(_nullByte);
         }
 
         protected override int GetPayloadLength()
         {
-            throw new NotImplementedException();
+            return GetEncodedStringLength(Severity) + 1 +
+                   GetEncodedStringLength(Text) + 1 +
+                   GetEncodedStringLength(Code) + 1 +
+                   GetEncodedStringLength(Message) + 1 +
+                   GetEncodedStringLength(Position) + 1 +
+                   GetEncodedStringLength(File) + 1 +
+                   GetEncodedStringLength(Line) + 1 +
+                   GetEncodedStringLength(Routine) + 1 +
+                 1;
         }
         public override byte[] GetMessageBytes()
         {
-            return null;
+            int length = GetPayloadLength();
+
+            byte[] ret = new byte[length];
+
+            int index = 0;
+
+            ret[index++] = (byte)'S';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Severity), false);
+            ret[index++] = (byte)'V';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Text), false);
+            ret[index++] = (byte)'C';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Code), false);
+            ret[index++] = (byte)'M';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Message), false);
+            ret[index++] = (byte)'P';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Position), false);
+            ret[index++] = (byte)'F';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(File), false);
+            ret[index++] = (byte)'L';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Line), false);
+            ret[index++] = (byte)'R';
+            MessageParser.WriteString(ret, ref index, EnsureNullTerminated(Routine), false);
+
+            ret[length - 1] = _nullByte;
+            return ret;
         }
 
         /// <summary>
