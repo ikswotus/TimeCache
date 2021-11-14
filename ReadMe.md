@@ -165,17 +165,23 @@ Internally, the query is parsed and any extra predicates (excluding the $__timeF
 Solution Overview
 
 TimeCacheGUI - Simple WPF application to allow starting/stopping a server and viewing logs.
-TimeCacheService - Allows running the TimeCacheNetworkServer as a windows service. Logs periodically flushed to disk.
-TimeCacheNetworkServer - Actual server/caching implementation, all the fun stuff is in here.
-PostgresqlCommunicator - Handles postgresql wire format. Allows parsing the connection info from grafana's requests and translating the c# data table back into the raw psql format for grafana.
 
+TimeCacheService - Allows running the TimeCacheNetworkServer as a windows service. Logs periodically flushed to disk.
+
+TimeCacheNetworkServer - Actual server/caching implementation, all the fun stuff is in here.
+
+PostgresqlCommunicator - Handles postgresql wire format. Allows parsing the connection info from grafana's requests and translating the c# data table back into the raw psql format for grafana. This is not intended in any way to try to replace Npgsql. Message handling is very basic and only supports basic connections and simple queries.
+
+------
 Other:
 SLog - Extremely simple logging helper.
+
 SimpleStatsGenerator - Small executable to generate testing data.
+
 Utils - Helper classes, table manager for bulk inserting sample stats.
 
 --------------------------------------
 Getting started
 
 To have grafana talk to a TimeCacheNetworkServer, it simply needs to be added as a postgresql data source. It mimics enough of the connection setup so grafana will recognize it as a valid postgresql db. 
-Note: Currently it does NOT support any TLS/SSL modes.
+Note: Currently it does NOT support any TLS/SSL modes, only basic authentication is currently supported.
