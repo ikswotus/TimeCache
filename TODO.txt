@@ -1,9 +1,4 @@
-NetworkServer
--> Actual authentication using grafana options
--> Error message propagation
-
 Caching
--> Segmentation
 -> Assume 'ordered' data (option)
 -> Select * from cache where tag = 'x'
 -> Select * from segments
@@ -19,7 +14,7 @@ Cleanup
 -> Message Refactoring (Not implemented methods)
 
 Documentation
-* Bucketing/Update interval explanation
+* Bucketing/Update interval explanation/examples
 
 Tests
 * QueryParsing
@@ -34,5 +29,3 @@ Re-Verify
 
 
 Issues
-* Grafana chart scale - due to update window most likely, eventually self corrects but obnoxious
--> Think this has been resolved by bucketing updates
