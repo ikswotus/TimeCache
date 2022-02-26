@@ -23,6 +23,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClientTester", "ClientTeste
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2A39B46B-E669-4718-BA23-7D156D5B99F5}"
 	ProjectSection(SolutionItems) = preProject
+		Examples.txt = Examples.txt
 		Notes.txt = Notes.txt
 		TODO.txt = TODO.txt
 	EndProjectSection
@@ -30,6 +31,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{7EFE68F5-7FA4-4D29-9375-C2BBD42A5A9D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerTester", "ServerTester\ServerTester.csproj", "{5C5A188A-A438-49A6-A6D5-9DB9A016D74D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SetupTestDatabase", "SetupTestDatabase\SetupTestDatabase.csproj", "{619EACE0-9D27-4F2E-9E2F-5E84882F1841}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -81,6 +84,10 @@ Global
 		{5C5A188A-A438-49A6-A6D5-9DB9A016D74D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5C5A188A-A438-49A6-A6D5-9DB9A016D74D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5C5A188A-A438-49A6-A6D5-9DB9A016D74D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

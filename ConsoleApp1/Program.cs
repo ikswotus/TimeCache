@@ -19,59 +19,88 @@ namespace ConsoleApp1
         {
             try
             {
-                string query = @"";
+                // string query = @"";
 
 
-//                string connString = "Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;";
-
-//                SLog.SLogger slog = new SLog.SLogger("Testing");
-
-//                DatabaseQuerier dq = new DatabaseQuerier(connString);
-
-//                SegmentManager sm = new SegmentManager(dq, slog);
-
-                
-
-//                string query = @"select machine_name, time_bucket('60.0s',sample_time) AS time, avg(current_value)
-//from stats.timeseries_data_id
-//inner join stats.machines on machines.id = machine_id
-//where sample_time BETWEEN '2021-11-11T13:43:52.004Z' AND '2021-11-11T14:13:52.004Z'
-//group by 1,2
-//order by 2 asc";
+                DateTime start = DateTime.UtcNow.AddHours(-1);
+                DateTime end = DateTime.UtcNow;
+                double a = 0;
 
 
-//                Console.WriteLine("TAG: " + ParsingUtils.GetQueryTag(query));
+                double factor = Math.PI / 180.0;
 
-                //NormalizedQuery nq = QueryParser.NormalizeQuery(query);
-                //Console.WriteLine(nq.NormalizedQueryText);
+                for(int i =0; i< 360; i++)
+                {
 
-                //DateTime qStart = DateTime.Parse("2021-11-11T13:43:52.004Z");
+                    Console.WriteLine(i.ToString("D2") + " " + Math.Sin(i * factor));
+                }
 
-                //DateTime qEnd = DateTime.Parse("2021-11-11T14:13:52.004Z");
+                //while (start < end)
+                //{
+                    
+                //    a = start.Minute;
+                //    if (a < 180)
+                //        a = 360 - a;
+                //    a = a - 180;
 
-                //QueryRange newRange = new QueryRange(qStart, qEnd);
+                //    Console.WriteLine(start.ToString("O") + " " + Math.Sin(a));
 
-                //string q = nq.QueryToExecute(newRange);
-                //Console.WriteLine(q);
-
-                //nq.BucketingInterval = "30s";
-
-                //sm.Get(nq);
-
-                //slog.PrintToConsole(true);
-                //// Next, query for new overlapping time range
-                //nq.StartTime = qStart.AddMinutes(-10);
-                //nq.EndTime = qEnd.AddMinutes(-10);
-
-                //sm.Get(nq);
-
-                //slog.PrintToConsole(true);
-
-                //sm.MergeSegments();
+                //    start = start.AddMinutes(1);
+                //}
 
 
-                //slog.PrintToConsole(true);
-            }
+
+
+                    //                string connString = "Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;";
+
+                    //                SLog.SLogger slog = new SLog.SLogger("Testing");
+
+                    //                DatabaseQuerier dq = new DatabaseQuerier(connString);
+
+                    //                SegmentManager sm = new SegmentManager(dq, slog);
+
+
+
+                    //                string query = @"select machine_name, time_bucket('60.0s',sample_time) AS time, avg(current_value)
+                    //from stats.timeseries_data_id
+                    //inner join stats.machines on machines.id = machine_id
+                    //where sample_time BETWEEN '2021-11-11T13:43:52.004Z' AND '2021-11-11T14:13:52.004Z'
+                    //group by 1,2
+                    //order by 2 asc";
+
+
+                    //                Console.WriteLine("TAG: " + ParsingUtils.GetQueryTag(query));
+
+                    //NormalizedQuery nq = QueryParser.NormalizeQuery(query);
+                    //Console.WriteLine(nq.NormalizedQueryText);
+
+                    //DateTime qStart = DateTime.Parse("2021-11-11T13:43:52.004Z");
+
+                    //DateTime qEnd = DateTime.Parse("2021-11-11T14:13:52.004Z");
+
+                    //QueryRange newRange = new QueryRange(qStart, qEnd);
+
+                    //string q = nq.QueryToExecute(newRange);
+                    //Console.WriteLine(q);
+
+                    //nq.BucketingInterval = "30s";
+
+                    //sm.Get(nq);
+
+                    //slog.PrintToConsole(true);
+                    //// Next, query for new overlapping time range
+                    //nq.StartTime = qStart.AddMinutes(-10);
+                    //nq.EndTime = qEnd.AddMinutes(-10);
+
+                    //sm.Get(nq);
+
+                    //slog.PrintToConsole(true);
+
+                    //sm.MergeSegments();
+
+
+                    //slog.PrintToConsole(true);
+                }
             catch(Exception exc)
             {
                 Console.WriteLine("Failure: " + exc);

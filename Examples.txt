@@ -1,0 +1,23 @@
+For testing, several helper programs exist to generate some framework/data for demoing features:
+
+SetupTestDatabase
+- Create the database/tables used for test data. Should be executed first.
+
+
+GenerateTestData
+- Command line application to create dummy data
+
+Possible cases:
+
+RandomWalk: Generates a sample series that increments/decrements by 1 each second. The direction of change
+is controlled by @shift param to allow for 'sticky' increases/decreases. 
+options:
+ - no_delete
+ -- Possible values: true or false
+ -- Default Value: true
+
+ - hours
+ -- Possible values 1+
+ -- default value : 1
+
+Increasing
