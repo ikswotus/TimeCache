@@ -25,7 +25,7 @@ namespace TimeCacheGUI.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Host=localhost;Port=5432;Database=examples;User ID=cache_user;Password=tc12345;")]
         public string DBConnectionString {
             get {
                 return ((string)(this["DBConnectionString"]));
@@ -49,7 +49,7 @@ namespace TimeCacheGUI.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("192.168.1.7")]
+        [global::System.Configuration.DefaultSettingValueAttribute("192.168.1.4")]
         public string AuthIP {
             get {
                 return ((string)(this["AuthIP"]));

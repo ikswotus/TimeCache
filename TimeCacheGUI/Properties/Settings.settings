@@ -3,13 +3,13 @@
   <Profiles />
   <Settings>
     <Setting Name="DBConnectionString" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Host=localhost;Port=5432;Database=perftest;User ID=cache_user;Password=tc12345;</Value>
+      <Value Profile="(Default)">Host=localhost;Port=5432;Database=examples;User ID=cache_user;Password=tc12345;</Value>
     </Setting>
     <Setting Name="Port" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">5433</Value>
     </Setting>
     <Setting Name="AuthIP" Type="System.String" Scope="User">
-      <Value Profile="(Default)">192.168.1.7</Value>
+      <Value Profile="(Default)">192.168.1.4</Value>
     </Setting>
     <Setting Name="PostgresqlPort" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">5432</Value>

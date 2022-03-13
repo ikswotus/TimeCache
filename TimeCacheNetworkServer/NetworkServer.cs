@@ -414,20 +414,20 @@ namespace TimeCacheNetworkServer
                                 }
                                 else
                                 {
-                                    List<PGMessage> spList = new List<PGMessage>();
+                                    //List<PGMessage> spList = new List<PGMessage>();
 
                                     foreach (SpecialQuery special in query.MetaCommands)
                                     {
                                         IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
                                         if (messages == null)
                                             continue;
-                                        spList.AddRange(messages);
+                                        messageList.AddRange(messages);
                                     }
 
-                                    spList.Add(new CommandCompletion("SELECT 1"));
-                                    spList.Add(new ReadyForQuery());
+                                    messageList.Add(new CommandCompletion("SELECT " + messageList.Count.ToString()));
+                                    messageList.Add(new ReadyForQuery());
 
-                                    NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(spList);
+                                    NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(messageList);
                                     long sb = sPmess.Send(s);
                                     // byte[] payload = ProtocolBuilder.BuildResponse(spList);
 
@@ -466,6 +466,7 @@ namespace TimeCacheNetworkServer
                         // Attempt to forward message details
                         try
                         {
+                            
                             PostgresqlCommunicator.ErrorResponseMessage erm = new ErrorResponseMessage();
                             erm.Severity = npgExc.Data["Severity"] as string;
                             erm.Code = npgExc.Data["SqlState"].ToString();

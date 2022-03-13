@@ -11,6 +11,14 @@ namespace GenerateTestData
      * for examples
      * 
      * Existing data is deleted by default. A command line option 'nodelete' can override to keep existing
+     * 
+     * 
+     * Examples:
+     * 
+     * .\GenerateTestData.exe 'conn_string' cycle hours:72 no_delete:false period_minutes:1440 metric_name:daily interval_seconds:60
+     * 
+     * .\GenerateTestData.exe 'conn_string' walk hours:72 start_value:1000 walk_stickiness:0.7 metric_name:random_walk_test
+     * 
      */
     class Program
     {
@@ -35,7 +43,7 @@ namespace GenerateTestData
         /// <param name="connString"></param>
         /// <param name="hours"></param>
         /// <param name="shift">Probability for changing direction</param>
-        public static void RandomWalk(string connString, string metric_name, int hours = 2, double shift = 0.5, double startValue = 500)
+        public static void RandomWalk(string connString, string metric_name, TimeSpan interval, int hours = 2, double shift = 0.5, double startValue = 500)
         {
             DateTime start = DateTime.UtcNow.AddHours(-1 * hours);
             DateTime end = DateTime.UtcNow.AddHours(hours);
@@ -58,12 +66,26 @@ namespace GenerateTestData
 
                 value += 1 * direction;
 
-                start = start.AddSeconds(1);
+                start = start.Add(interval);
                 tdt.AddSimpleTestRow(metric_name, start, value);
             }
             tm.BulkInsert(tdt, "demo.generated_data");
         }
-        public static void CyclicalTrending(string connString, string metric_name, int hours = 2, double trend = 1.0, double anchor = 500.0, double outlierProbability = 0.00, int pm = 60)// double sinAmp = 6.0, double modFactor = 1.0)
+        
+        
+        /// <summary>
+        /// Generate data that follows a cyclical pattern. This is accomplished
+        /// by using a sine wave as the root value. Allows inclusion of trends/randomized values
+        /// </summary>
+        /// <param name="connString"></param>
+        /// <param name="metric_name"></param>
+        /// <param name="hours"></param>
+        /// <param name="trend"></param>
+        /// <param name="anchor"></param>
+        /// <param name="pointValueFlux"></param>
+        /// <param name="outlierProbability"></param>
+        /// <param name="pm"></param>
+        public static void CyclicalTrending(string connString, string metric_name, TimeSpan interval, int hours = 2, double trend = 0.001, double anchor = 500.0, int pointValueFlux = 15, double outlierProbability = 0.00, int pm = 60)// double sinAmp = 6.0, double modFactor = 1.0)
         {
 
             double magnitude = 100.0;
@@ -75,15 +97,9 @@ namespace GenerateTestData
             Utils.Postgresql.TableManager tm = new Utils.Postgresql.TableManager(new Utils.Postgresql.ManagedBulkWriter(), connString);
             DateTime end = DateTime.UtcNow.AddHours(hours);
 
-            // 
-
-            TestSeries.SimpleTestDataTable sinDT = new TestSeries.SimpleTestDataTable();
-            TestSeries.SimpleTestDataTable adt = new TestSeries.SimpleTestDataTable();
-
             double core_value = anchor;
             Random r = new Random();
 
-            //double ten = pm / 10; //12.0
             double modFactor = pm / 60.0;
             double sinAmp = 6.0 / modFactor;
 
@@ -91,37 +107,41 @@ namespace GenerateTestData
             Console.WriteLine("SinAmp: " + sinAmp);
             Console.WriteLine("ModFactor: " + modFactor);
             
+            double fixedTrend = 0.0;
+
+            long looped = 0;
+
             double a = 0;
             double factor = Math.PI / 180.0;
             while (start < end)
             {
-                //if (r.NextDouble() > 0.96)
-                //    core_value += trend;
-
+               
                 double modHour = start.Hour % modFactor;
 
-                //if(start.Hour > 18)
-                //{
-                //    int diff = (24 - start.Hour);
-                //    modHour += (1.0 / diff);
-                //}
-
+               
                 a =  (modHour * (360 / modFactor)) + start.Minute * sinAmp;
 
-                adt.AddSimpleTestRow("a", start, a);
-
                 double sin = Math.Sin(a * factor);
-                // Peaks are 0.85,1.0
-                // Valleys: -0.85,-1.0
+                
+              //  double adjust = Math.Pow((1 - Math.Abs(sin)), 2);
 
-                double adjust = Math.Pow((1 - Math.Abs(sin)), 2);
-
-                double asin = (sin < 0) ? sin - adjust : sin + adjust;
+              //  double asin = (sin < 0) ? sin - adjust : sin + adjust;
               
 
-                double value = core_value + asin * magnitude;
-              
+                double value = core_value + sin * magnitude;
 
+                // Adjust the point randomly by pointValueFlux
+                if(pointValueFlux > 0)
+                {
+                    if (r.NextDouble() > 0.5)
+                        value += r.Next(0, pointValueFlux);
+                    else
+                        value -= r.Next(0, pointValueFlux);
+
+                    //value += randomTrend;
+                }
+
+                // Extreme point values - magnify value by 1.5x-2.5x
                 if (r.NextDouble() < outlierProbability)
                 {
                     if (r.NextDouble() > 0.5)
@@ -130,15 +150,19 @@ namespace GenerateTestData
                         value /= (r.NextDouble() + 1.5);
                 }
 
-                tdt.AddSimpleTestRow(metric_name, start, value);
-                sinDT.AddSimpleTestRow("sin", start, Math.Sin(a * factor));
-                sinDT.AddSimpleTestRow("asin", start, asin);
+               
 
-                start = start.AddSeconds(1);
+                value += fixedTrend;
+
+                fixedTrend += trend;
+                
+
+                tdt.AddSimpleTestRow(metric_name, start, value);
+
+                looped++;
+                start = start.Add(interval);
             }
             tm.BulkInsert(tdt, "demo.generated_data");
-            tm.BulkInsert(sinDT, "demo.generated_data");
-            tm.BulkInsert(adt, "demo.generated_data");
         }
 
         /// <summary>
@@ -269,6 +293,13 @@ namespace GenerateTestData
                     if (!double.TryParse(options["start_value"], out startValue))
                         Console.Error.WriteLine("Failed to parse double value for start_value option: " + options["start_value"]);
                 }
+                int intervalSeconds = 5;
+                if (options.ContainsKey("interval_seconds"))
+                {
+                    if (!int.TryParse(options["interval_seconds"], out intervalSeconds))
+                        Console.Error.WriteLine("Failed to parse integer for interval seconds option: " + options["interval_seconds"]);
+                }
+                TimeSpan interval = TimeSpan.FromSeconds(intervalSeconds);
 
                 string metric_name = test;
                 if (options.ContainsKey("metric_name"))
@@ -328,28 +359,7 @@ namespace GenerateTestData
                         }
                     }
 
-                    //double sa = 6.0;
-                    //if (options.ContainsKey("sin_amp"))
-                    //{
-                    //    if (!double.TryParse(options["sin_amp"], out sa))
-                    //        Console.Error.WriteLine("Failed to parse double value for sin_amp option: " + options["sin_amp"]);
-                    //    if (0.0 > sa)
-                    //    {
-                    //        throw new Exception("Invalid sin_amp: must be greater than 0.0: " + sa);
-                    //    }
-                    //}
-                    //double mf = 1.0;
-                    //if (options.ContainsKey("mod_factor"))
-                    //{
-                    //    if (!double.TryParse(options["mod_factor"], out mf))
-                    //        Console.Error.WriteLine("Failed to parse double value for mod_factor option: " + options["mod_factor"]);
-                    //    if (0.0 > mf || 24.0 < mf)
-                    //    {
-                    //        throw new Exception("Invalid mod_factor: must be greater than 0.0: " + mf);
-                    //    }
-                    //}
-
-                    CyclicalTrending(connString, metric_name, hours, 1, 500.0, 0.000, pm);
+                    CyclicalTrending(connString, metric_name, interval, hours, 0.01, 500.0, 15, 0.000, pm);
                 }
                 else if(string.Equals(test, "walk"))
                 {
@@ -363,7 +373,7 @@ namespace GenerateTestData
                             throw new Exception("Invalid stickiness: must be between 0.0 and 100.0, provided: " + stickiness);
                         }    
                     }
-                    RandomWalk(connString, metric_name, hours, stickiness, startValue);
+                    RandomWalk(connString, metric_name, interval, hours, stickiness, startValue);
                 }
                 else
                 {

@@ -86,6 +86,14 @@ namespace TimeCacheNetworkServer
 
                 bool separate = query.Options.ContainsKey("separate") ? bool.Parse(query.Options["separate"]) : false;
 
+                string method = query.Options.ContainsKey("method") ? query.Options["method"] : "avg";
+
+                AggMethod am = AggMethod.AVG;
+                if(!Enum.TryParse(method.ToUpper(), out am))
+                {
+                    qm.Error("Failed to parse aggregate method, provided: " + method);
+                }
+
                 List<PGMessage> ret = new List<PGMessage>();
 
                 foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
@@ -105,10 +113,24 @@ namespace TimeCacheNetworkServer
                         {
                             DateTime intEnd = curr.Add(interval);
 
-                            double value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+                            double value = 0.0;
 
-                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, curr, value }));
-                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, intEnd, value }));
+                            switch (am)
+                            {
+                                case AggMethod.AVG:
+                                    value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+                                    break;
+                                case AggMethod.SUM:
+                                    value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Sum(v => v.Value);
+                                    break;
+                                default:
+                                    qm.Error("Unsupported AggMethod: " + am.ToString());
+                                    break;
+                            }
+                           
+
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + method.ToString() + "_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, curr, value }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + method.ToString() + "_" + ts.Key + "_" + aggBucket.ToString("D2") + "_" + opInt, intEnd, value }));
 
                             aggBucket++;
                             curr = curr.Add(interval);
@@ -122,7 +144,22 @@ namespace TimeCacheNetworkServer
                             DateTime intEnd = curr.Add(interval);
 
                             DataPointDouble agg = new DataPointDouble() { SampleTime = curr };
-                            agg.Value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+
+                            agg.Value = 0.0;
+
+                            switch (am)
+                            {
+                                case AggMethod.AVG:
+                                    agg.Value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Average(v => v.Value);
+                                    break;
+                                case AggMethod.SUM:
+                                    agg.Value = points.Where(p => p.SampleTime >= curr && p.SampleTime < intEnd).Sum(v => v.Value);
+                                    break;
+                                default:
+                                    qm.Error("Unsupported AggMethod: " + am.ToString());
+                                    break;
+                            }
+                           
 
                             // want a flat line, so add 2 points
                             aggPoints.Add(agg);
@@ -133,7 +170,7 @@ namespace TimeCacheNetworkServer
 
                         foreach (DataPointDouble agp in aggPoints)
                         {
-                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + ts.Key + "_" + opInt, agp.SampleTime, agp.Value }));
+                            ret.Add(Translator.BuildRowMessage(new object[] { "agg_bucket_" + method.ToString() + "_" + ts.Key + "_" + opInt, agp.SampleTime, agp.Value }));
                         }
                     }
                 }
@@ -487,6 +524,9 @@ namespace TimeCacheNetworkServer
                 return ret;
 
             }
+
+
+            // TODO: Support clustering (C# or extension)? Both?
             //else if(string.Equals(query.Command, "cluster", StringComparison.OrdinalIgnoreCase))
             //{
             //    int k = query.Options.ContainsKey("k") ? int.Parse(query.Options["k"]) : 3;
@@ -563,5 +603,11 @@ namespace TimeCacheNetworkServer
 
         // TODO: Put in common lib
         private static DateTime _Epoch = new DateTime(1970, 01, 01);
+    }
+
+    public enum AggMethod
+    {
+        AVG,
+        SUM
     }
 }
