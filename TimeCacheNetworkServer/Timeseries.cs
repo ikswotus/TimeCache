@@ -14,6 +14,11 @@ namespace TimeCacheNetworkServer
             SeriesData = new Dictionary<string, TimeSeries>();
         }
 
+        /// <summary>
+        /// In case we're doing a meta-only query, allow the timecollection to retrieve/build the descriptor.
+        /// </summary>
+        public PostgresqlCommunicator.RowDescription DescriptorMessage { get; set; }
+        
         public Dictionary<string, TimeSeries> SeriesData { get; set; }
     }
 

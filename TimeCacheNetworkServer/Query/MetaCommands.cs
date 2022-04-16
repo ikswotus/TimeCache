@@ -26,10 +26,55 @@ namespace TimeCacheNetworkServer
         /// <returns></returns>
         public static IEnumerable<PGMessage> HandleSpecial(SpecialQuery query, QueryManager qm, Query.NormalizedQuery sourceQuery)
         {
+            List<PGMessage> ret = new List<PGMessage>();
+
+            // Special Case - avoid GetSeriesCollection()
+            if (string.Equals(query.Command, "cache_segments", StringComparison.OrdinalIgnoreCase))
+            {
+                /**
+                 * Retrieves an overview of the current cached segments.
+                 * For each segment, a line is returned from DataStart to DataEnd.
+                 * The height (value) of the line will be the # of rows within the segment.
+                 * 
+                 * For now, all segments will be returned. Additional filtering by tag/source
+                 * would be useful at some point...
+                 */
+                List<Caching.SegmentSummary> segments = qm.GetSegmentSummaries();
+
+              
+                if (sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
+                {
+                    List<Translator.NamedColumns> cols = new List<Translator.NamedColumns>();
+                    cols.Add(new Translator.NamedColumns() { Name = "tag", ValueType = typeof(string) });
+                    cols.Add(new Translator.NamedColumns() { Name = "time", ValueType = typeof(DateTime) });
+                    cols.Add(new Translator.NamedColumns() { Name = "value", ValueType = typeof(Int64) });
+                    RowDescription rd = Translator.BuildRowDescription(cols);
+                    ret.Add(rd);
+                }
+
+
+                foreach (Caching.SegmentSummary cs in segments.Where(c => c.Start >= query.Start && c.End <= query.End))
+                {
+                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.Start, cs.Count }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.End, cs.Count }));
+                }
+                return ret;
+
+            }
+            // TODO: Dont need series data for 'fixed' line either...however we may have multiple lines enabled, and others need it..
+            //else if (string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase) && query.Options.ContainsKey("fixed"))
+            //{
+            //    double value = ParsingUtils.ExpandNumeric(query.Options["fixed"]);
+            //    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.Start, value }));
+            //    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.End, value }));
+            //    return ret;
+            //}
+
+            TimeCollection data = GetSeriesCollection(query, qm);
+           
+
             if (string.Equals(query.Command, "regress", StringComparison.OrdinalIgnoreCase))
             {
-                TimeCollection data = GetSeriesCollection(query, qm);
-
                 // options: maxPoints, difference
                 int ptok = -1;
                 if (query.Options.ContainsKey("points"))
@@ -39,7 +84,7 @@ namespace TimeCacheNetworkServer
                 if (query.Options.ContainsKey("difference"))
                     useDiff = bool.Parse(query.Options["difference"]);
 
-                List<PGMessage> ret = new List<PGMessage>();
+               
                 Match m = ParsingUtils.TimeBucketRegex.Match(query.RawQuery);
 
                 foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
@@ -79,7 +124,7 @@ namespace TimeCacheNetworkServer
             }
             else if (string.Equals(query.Command, "agg_bucket", StringComparison.OrdinalIgnoreCase))
             {
-                TimeCollection data = GetSeriesCollection(query, qm);
+              
 
                 string opInt = query.Options.ContainsKey("interval") ? query.Options["interval"] : "1h";
                 TimeSpan interval = ParsingUtils.ParseInterval(opInt);
@@ -93,8 +138,6 @@ namespace TimeCacheNetworkServer
                 {
                     qm.Error("Failed to parse aggregate method, provided: " + method);
                 }
-
-                List<PGMessage> ret = new List<PGMessage>();
 
                 foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
@@ -187,11 +230,7 @@ namespace TimeCacheNetworkServer
 
                 bool useInterval = query.Options.ContainsKey("interval"); // Rolling STDDEV
 
-                TimeCollection series = GetSeriesCollection(query, qm);
-
-                List<PGMessage> ret = new List<PGMessage>();
-
-                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+                foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
                     // Skip for now, TODO: Log 
                     if (ts.Value.Data.Count <= 2)
@@ -290,10 +329,10 @@ namespace TimeCacheNetworkServer
                 updated = updated.Replace("'" + m.Groups["end_time"].Value + "'", "'" + m.Groups["end_time"].Value + "'::timestamptz - interval '" + opInt + "'");
 
                 qm.Trace("Updated Offset query: [" + updated + "]");
-                DataTable t = qm.SimpleQuery(updated);
-                TimeCollection series = GetSeriesCollection(t);
-                List<PGMessage> ret = new List<PGMessage>();
-                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+               
+
+              
+                foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
                     string key = "offset_" + ts.Key + "_" + opInt;
                     foreach (DataPointDouble point in ts.Value.Data)
@@ -310,11 +349,8 @@ namespace TimeCacheNetworkServer
 
                 int ptok = query.Options.ContainsKey("points") ? int.Parse(query.Options["points"]) : -1;
 
-                List<PGMessage> ret = new List<PGMessage>();
-
-                TimeCollection series = GetSeriesCollection(query, qm);
-
-                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+              
+                foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
                     IEnumerable<DataPointDouble> points = ts.Value.Data.OrderBy(d => d.SampleTime);
                     if (ptok != -1)
@@ -340,36 +376,29 @@ namespace TimeCacheNetworkServer
             }
             else if (string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase))
             {
-                TimeCollection series = GetSeriesCollection(query, qm);
-                List<PGMessage> ret = new List<PGMessage>();
-
+               
                 if (query.Options.Count == 0 || (query.Options.ContainsKey("min") && query.Options["min"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
-                    double value = series.SeriesData.Values.Min(ts => ts.Data.Min(d => d.Value));
+                    double value = data.SeriesData.Values.Min(ts => ts.Data.Min(d => d.Value));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.Start, value }));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.End, value }));
                 }
 
                 if (query.Options.Count == 0 || (query.Options.ContainsKey("max") && query.Options["max"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
-                    double value = series.SeriesData.Values.Min(ts => ts.Data.Max(d => d.Value));
+                    double value = data.SeriesData.Values.Min(ts => ts.Data.Max(d => d.Value));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.Start, value }));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.End, value }));
                 }
 
                 if (query.Options.Count == 0 || (query.Options.ContainsKey("avg") && query.Options["avg"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
-                    double value = series.SeriesData.Values.Min(ts => ts.Data.Average(d => d.Value));
+                    double value = data.SeriesData.Values.Min(ts => ts.Data.Average(d => d.Value));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.Start, value }));
                     ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.End, value }));
                 }
 
-                if (query.Options.ContainsKey("fixed"))
-                {
-                    double value = ParsingUtils.ExpandNumeric(query.Options["fixed"]);
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.Start, value }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.End, value }));
-                }
+               
 
                 return ret;
             }
@@ -385,12 +414,8 @@ namespace TimeCacheNetworkServer
                 if (ptok < 5)
                     ptok = 5;
                 //bool highlighOutliers = query.Options.ContainsKey("highlight") ? bool.Parse(query.Options["highlight"]) : false;
-                
-                TimeCollection series = GetSeriesCollection(query, qm);
-
-                List<PGMessage> ret = new List<PGMessage>();
-
-                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+               
+                foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
                     List<DataPointDouble> points = ts.Value.Data.OrderBy(c => c.SampleTime).ToList();
                     if (points.Count < 5)
@@ -432,10 +457,6 @@ namespace TimeCacheNetworkServer
             }
             else if (string.Equals(query.Command, "ema", StringComparison.OrdinalIgnoreCase))
             {
-
-                TimeCollection series = GetSeriesCollection(query, qm);
-                List<PGMessage> ret = new List<PGMessage>();
-
                 /*
                  * Exponential Moving Average
                  * https://en.wikipedia.org/wiki/Moving_average
@@ -448,7 +469,7 @@ namespace TimeCacheNetworkServer
 
                 double smooth = query.Options.ContainsKey("smooth") ? double.Parse(query.Options["smooth"]) : 0.9;
 
-                foreach (KeyValuePair<string, TimeSeries> ts in series.SeriesData)
+                foreach (KeyValuePair<string, TimeSeries> ts in data.SeriesData)
                 {
                     List<DataPointDouble> points = ts.Value.Data.OrderBy(c => c.SampleTime).ToList();
                     if (points.Count < 5)
@@ -492,38 +513,7 @@ namespace TimeCacheNetworkServer
                 }
                 return ret;
             }
-            else if (string.Equals(query.Command, "cache_segments", StringComparison.OrdinalIgnoreCase))
-            {
-                /**
-                 * Retrieves an overview of the current cached segments.
-                 * For each segment, a line is returned from DataStart to DataEnd.
-                 * The height (value) of the line will be the # of rows within the segment.
-                 * 
-                 * For now, all segments will be returned. Additional filtering by tag/source
-                 * would be useful at some point...
-                 */
-                List<Caching.SegmentSummary> segments = qm.GetSegmentSummaries();
-
-                List<PGMessage> ret = new List<PGMessage>();
-                if(sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
-                {
-                    List<Translator.NamedColumns> cols = new List<Translator.NamedColumns>();
-                    cols.Add(new Translator.NamedColumns() { Name = "tag", ValueType = typeof(string) });
-                    cols.Add(new Translator.NamedColumns() { Name = "time", ValueType = typeof(DateTime) });
-                    cols.Add(new Translator.NamedColumns() { Name = "value", ValueType = typeof(Int64) });
-                    RowDescription rd = Translator.BuildRowDescription(cols);
-                    ret.Add(rd);
-                }
-                
-
-                foreach (Caching.SegmentSummary cs in segments.Where(c => c.Start >= query.Start && c.End <= query.End))
-                {
-                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.Start, cs.Count }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.End, cs.Count }));
-                }
-                return ret;
-
-            }
+            
 
 
             // TODO: Support clustering (C# or extension)? Both?
@@ -584,6 +574,9 @@ namespace TimeCacheNetworkServer
         public static TimeCollection ConvertToSeriesCollection(DataTable table, int timeIndex, int valIndex, int metIndex)
         {
             TimeCollection ret = new TimeCollection();
+
+            ret.DescriptorMessage = PostgresqlCommunicator.Translator.BuildRowDescription(table);
+
 
             bool doubleTime = table.Columns[timeIndex].DataType != typeof(DateTime);
 
