@@ -226,8 +226,17 @@ namespace TimeCacheNetworkServer.Caching
         /// <param name="mergeTarget">Source of new data - Should not be used again after calling merge</param>
         public void MergeSegments(CacheSegment mergeTarget)
         {
-            if (mergeTarget.CurrentData.Count == 0 || mergeTarget.DataStartTime == DateTime.MinValue || mergeTarget.DataEndTime == DateTime.MinValue)
+            if (mergeTarget.DataStartTime == DateTime.MinValue || mergeTarget.DataEndTime == DateTime.MinValue)
                 throw new Exception("Invalid cache segment to merge into");
+            
+            if(mergeTarget.CurrentData.Count == 0)
+            {
+                // This can happen if we're using a (now - x) query, and the data for now has not been databased
+                // our query has fresh dates, but theres no new data to merge into. Maybe we dont expect more data
+                // and this is ok. However, if we consistently dont have new data, its possible our update window
+                // is too small and will introduce gaps into the data.
+                Debug("Warning: Merge target did not contain any rows, update interval may need to be increased.");
+            }
 
             // Determine where the overlap lies:
             QueryRange other = new QueryRange(mergeTarget.DataStartTime, mergeTarget.DataEndTime);

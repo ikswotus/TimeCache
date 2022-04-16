@@ -51,9 +51,13 @@ namespace TimeCacheNetworkServer
                     RowDescription rd = Translator.BuildRowDescription(cols);
                     ret.Add(rd);
                 }
-
-
-                foreach (Caching.SegmentSummary cs in segments.Where(c => c.Start >= query.Start && c.End <= query.End))
+                
+                // This may result in 'data out of range' messages in grafana
+                // We could strictly limit to c.start >= query.Start && c.end <= query.End
+                // however this will remove/hide segments that cover 99% of the window if we're off by even a tiny amount...
+                // Ideally cache_segments will be used as ExecuteMetaOnly && ReturnMetaOnly above...otherwise
+                // assume we'll want to see overlapping segments on the chart
+                foreach (Caching.SegmentSummary cs in segments.Where(c => UtilityMethods.Between(query.Start, query.End, c.Start) || UtilityMethods.Between(query.Start, query.End, c.End)))
                 {
                     ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.Start, cs.Count }));
                     ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.End, cs.Count }));

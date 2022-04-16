@@ -107,6 +107,7 @@
     <Compile Include="Query\SpecialQuery.cs" />
     <Compile Include="Stats\CacheStats.cs" />
     <Compile Include="Timeseries.cs" />
+    <Compile Include="UtilityMethods.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
