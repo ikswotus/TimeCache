@@ -62,13 +62,18 @@ namespace TimeCacheNetworkServer
                 // Ideally cache_segments will be used as ExecuteMetaOnly && ReturnMetaOnly above...otherwise
                 // assume we'll want to see overlapping segments on the chart
                 int seg = 0;
+                List<Caching.SegmentPoint> points = new List<Caching.SegmentPoint>();
                 foreach (Caching.SegmentSummary cs in segments.Where(c => UtilityMethods.Between(query.Start, query.End, c.Start) || UtilityMethods.Between(query.Start, query.End, c.End)).OrderBy(c => c.Start))
                 {
                     string t = cs.Tag;
                     if (separate)
                         t += "_" + seg++.ToString();
-                    ret.Add(Translator.BuildRowMessage(new object[] { t, cs.Start, cs.Count }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { t, cs.End, cs.Count }));
+                    points.AddRange(cs.ToPoints(t));
+                    
+                }
+                foreach(Caching.SegmentPoint sp in points.OrderBy(p => p.Timestamp))
+                {
+                    ret.Add(Translator.BuildRowMessage(new object[] { sp.Tag, sp.Timestamp, sp.Count }));
                 }
                 return ret;
 

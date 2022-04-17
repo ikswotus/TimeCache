@@ -285,5 +285,18 @@ namespace TimeCacheNetworkServer.Caching
         public DateTime End { get; private set; }
         public DateTime Start { get; private set; }
         public string Tag { get; private set; }
+
+        public List<SegmentPoint> ToPoints(string tag)
+        {
+            return new List<SegmentPoint>(){new  SegmentPoint() {  Count = this.Count, Tag = tag, Timestamp = this.Start},
+                 new SegmentPoint() {  Count = this.Count, Tag = tag, Timestamp = this.End} };
+        }
+    }
+
+    public class SegmentPoint
+    {
+        public string Tag { get; set; }
+        public long Count { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 }

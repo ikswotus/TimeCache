@@ -500,6 +500,7 @@ namespace PostgresqlCommunicator
         public ReadyForQuery()
         {
             MessageType = PGTypes.ReadyForQuery;
+            Status = _readyByte[0];
         }
 
         private static readonly byte[] _readyByte = new byte[] { 0x49 };

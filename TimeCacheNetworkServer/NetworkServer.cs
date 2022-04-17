@@ -424,18 +424,18 @@ namespace TimeCacheNetworkServer
                                         messageList.AddRange(messages);
                                     }
 
-                                    messageList.Add(new CommandCompletion("SELECT " + messageList.Count.ToString()));
+                                    messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
                                     messageList.Add(new ReadyForQuery());
 
-                                    NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(messageList);
-                                    long sb = sPmess.Send(s);
-                                    // byte[] payload = ProtocolBuilder.BuildResponse(spList);
+                                    //NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(messageList);
+                                    //long sb = sPmess.Send(s);
+                                    //// byte[] payload = ProtocolBuilder.BuildResponse(spList);
 
-                                    // Send select result
-                                    Debug("Sending special response");
-                                    //int sb = s.Send(payload);
-                                    //Trace("Sent: " + sb + ", " + payload.Length);
-                                    Trace("Sent: " + sb);
+                                    //// Send select result
+                                    //Debug("Sending special response");
+                                    ////int sb = s.Send(payload);
+                                    ////Trace("Sent: " + sb + ", " + payload.Length);
+                                    //Trace("Sent: " + sb);
                                 }
 
                                 NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
@@ -458,6 +458,7 @@ namespace TimeCacheNetworkServer
                         }
                         Trace("Bytes handled: " + bytes);
                         s.ReceiveTimeout = 0;
+                        
                     }
 
                     catch (Npgsql.NpgsqlException npgExc)
