@@ -41,7 +41,11 @@ namespace TimeCacheNetworkServer
                  */
                 List<Caching.SegmentSummary> segments = qm.GetSegmentSummaries();
 
-              
+                bool separate = false;
+                if (query.Options.ContainsKey("separate"))
+                    separate = bool.Parse(query.Options["separate"]);
+
+
                 if (sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
                 {
                     List<Translator.NamedColumns> cols = new List<Translator.NamedColumns>();
@@ -51,28 +55,24 @@ namespace TimeCacheNetworkServer
                     RowDescription rd = Translator.BuildRowDescription(cols);
                     ret.Add(rd);
                 }
-                
+
                 // This may result in 'data out of range' messages in grafana
                 // We could strictly limit to c.start >= query.Start && c.end <= query.End
                 // however this will remove/hide segments that cover 99% of the window if we're off by even a tiny amount...
                 // Ideally cache_segments will be used as ExecuteMetaOnly && ReturnMetaOnly above...otherwise
                 // assume we'll want to see overlapping segments on the chart
-                foreach (Caching.SegmentSummary cs in segments.Where(c => UtilityMethods.Between(query.Start, query.End, c.Start) || UtilityMethods.Between(query.Start, query.End, c.End)))
+                int seg = 0;
+                foreach (Caching.SegmentSummary cs in segments.Where(c => UtilityMethods.Between(query.Start, query.End, c.Start) || UtilityMethods.Between(query.Start, query.End, c.End)).OrderBy(c => c.Start))
                 {
-                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.Start, cs.Count }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { cs.Tag, cs.End, cs.Count }));
+                    string t = cs.Tag;
+                    if (separate)
+                        t += "_" + seg++.ToString();
+                    ret.Add(Translator.BuildRowMessage(new object[] { t, cs.Start, cs.Count }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { t, cs.End, cs.Count }));
                 }
                 return ret;
 
             }
-            // TODO: Dont need series data for 'fixed' line either...however we may have multiple lines enabled, and others need it..
-            //else if (string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase) && query.Options.ContainsKey("fixed"))
-            //{
-            //    double value = ParsingUtils.ExpandNumeric(query.Options["fixed"]);
-            //    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.Start, value }));
-            //    ret.Add(Translator.BuildRowMessage(new object[] { "line_fixed_" + query.Options["fixed"], query.End, value }));
-            //    return ret;
-            //}
 
             TimeCollection data = GetSeriesCollection(query, qm);
            
