@@ -45,7 +45,6 @@ namespace TimeCacheNetworkServer
                 if (query.Options.ContainsKey("separate"))
                     separate = bool.Parse(query.Options["separate"]);
 
-
                 if (sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
                 {
                     List<Translator.NamedColumns> cols = new List<Translator.NamedColumns>();
@@ -55,6 +54,7 @@ namespace TimeCacheNetworkServer
                     RowDescription rd = Translator.BuildRowDescription(cols);
                     ret.Add(rd);
                 }
+
 
                 // This may result in 'data out of range' messages in grafana
                 // We could strictly limit to c.start >= query.Start && c.end <= query.End
@@ -80,7 +80,13 @@ namespace TimeCacheNetworkServer
             }
 
             TimeCollection data = GetSeriesCollection(query, qm);
-           
+
+            // TODO: Verify ALL meta-commands only return these columns?
+            if (sourceQuery.ExecuteMetaOnly && sourceQuery.ReturnMetaOnly)
+            {
+                ret.Add(data.DescriptorMessage);
+            }
+
 
             if (string.Equals(query.Command, "regress", StringComparison.OrdinalIgnoreCase))
             {

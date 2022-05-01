@@ -24,8 +24,10 @@ namespace PostgresqlCommunicator
         {
             RowDescription rd = new RowDescription(table.Columns.Count);
 
-            foreach (DataColumn dc in table.Columns)
+            for(int i =0; i< table.Columns.Count; i++) 
             {
+                DataColumn dc = table.Columns[i];
+                
                 Type lookup = dc.DataType;
                 
                 if (!TypeOIDMap.ContainsKey(lookup))
@@ -34,7 +36,7 @@ namespace PostgresqlCommunicator
                     throw new Exception("Unable to map type: " + lookup + " to length");
                 short cl = ColumnLengthMap[lookup];
 
-                RowDescriptionField rdf = new RowDescriptionField(dc.ColumnName + "\0", TypeOIDMap[lookup], cl);
+                RowDescriptionField rdf = new RowDescriptionField(dc.ColumnName, TypeOIDMap[lookup], cl, i);
                 rd.Fields.Add(rdf);
                 rd.OriginalTypes.Add(lookup);
             }
@@ -44,15 +46,16 @@ namespace PostgresqlCommunicator
         public static RowDescription BuildRowDescription(List<NamedColumns> cols)
         {
             RowDescription specialRes = new RowDescription(cols.Count);
-            foreach(NamedColumns nc in cols)
+            for(int i =0; i< cols.Count; i++)
             {
+                NamedColumns nc = cols[i];
                 if (!TypeOIDMap.ContainsKey(nc.ValueType))
                     throw new Exception("Unable to map type: " + nc.ValueType + " to oid");
                 if (!ColumnLengthMap.ContainsKey(nc.ValueType))
                     throw new Exception("Unable to map type: " + nc.ValueType + " to length");
                 short cl = ColumnLengthMap[nc.ValueType];
 
-                RowDescriptionField rdf = new RowDescriptionField(nc.Name + "\0", TypeOIDMap[nc.ValueType], cl);
+                RowDescriptionField rdf = new RowDescriptionField(nc.Name, TypeOIDMap[nc.ValueType], cl, i);
                 specialRes.Fields.Add(rdf);
             }
 
@@ -72,8 +75,9 @@ namespace PostgresqlCommunicator
             // First - Need a row descriptor identifying the columns
             RowDescription rd = new RowDescription(dt.Columns.Count);
 
-            foreach(DataColumn dc in dt.Columns)
+            for(int i =0; i< dt.Columns.Count; i++)
             {
+                DataColumn dc = dt.Columns[i];
                 Type lookup = dc.DataType;
                 if (!TypeOIDMap.ContainsKey(lookup))
                     throw new Exception("Unable to map type: " + lookup + " to oid");
@@ -81,7 +85,7 @@ namespace PostgresqlCommunicator
                     throw new Exception("Unable to map type: " + lookup + " to length");
                 short cl = ColumnLengthMap[lookup];
                     
-                RowDescriptionField rdf = new RowDescriptionField(dc.ColumnName + "\0", TypeOIDMap[lookup], cl);
+                RowDescriptionField rdf = new RowDescriptionField(dc.ColumnName, TypeOIDMap[lookup], cl, i);
                 rd.Fields.Add(rdf);
             }
             mess.Add(rd);

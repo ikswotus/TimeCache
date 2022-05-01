@@ -122,7 +122,7 @@ namespace PostgresqlCommunicator
             // TODO: For now only allow 3.0.
             // TODO: Make this a configuration option? 3.1 may 'just work'
             if (sm.MajorVersion != 3 || sm.MinorVersion != 0)
-                throw new Exception("Only protocol verion 3.0 is currently supported");
+                throw new Exception("Only protocol version 3.0 is currently supported: " + sm.MajorVersion + "." + sm.MinorVersion);
 
             while (index < sm.Length - 1)
             {
@@ -281,10 +281,14 @@ namespace PostgresqlCommunicator
             Format = (short)FieldFormats.Text;
         }
 
-        public RowDescriptionField(string columnName, int typeOid, short length)
+        public RowDescriptionField(string columnName, int typeOid, short length, int colIdx)
         {
             ColumnName = columnName;
 
+            if (!ColumnName.EndsWith("\0"))
+                ColumnName = ColumnName + "\0";
+
+            ColumnIndex = (short)colIdx;
             TypeOID = typeOid;
             ColumnLength = length;
 
