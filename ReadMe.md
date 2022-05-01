@@ -22,9 +22,20 @@ TimeCache is a simple C# proxy server that is intended to sit between grafana an
 # Meta-Commands/Options
 TimeCache supports prefixing queries with additional commands or options that can extend or modify the behavior of a query.
 
+Note: This results in queries that are NOT valid SQL. 
+
 The structure of commands/options is:
 
 `[{command1},{command2},...,{commandN}]{option1,...,optionN}query`
+
+```
+[{lines,fixed=722}]{metaonly=true}select metric_name, $__timeGroup(sample_time, '15s'), avg(current_value)
+from test.simple_test
+where $__timeFilter(sample_time)
+group by 1,2
+order by 2 asc
+```
+
 ## Meta-Commands
 Meta-Commands are special queries that will return additional timeseries data in addition to the results of the original query.
 
