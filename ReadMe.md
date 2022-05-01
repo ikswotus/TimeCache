@@ -28,6 +28,7 @@ The structure of commands/options is:
 
 `[{command1},{command2},...,{commandN}]{option1,...,optionN}query`
 
+Example: This uses the 'Lines' command with a command option to draw a fixed line, and specify the 'metaonly' query option so we dont return the underlying data.
 ```
 [{lines,fixed=722}]{metaonly=true}select metric_name, $__timeGroup(sample_time, '15s'), avg(current_value)
 from test.simple_test
@@ -45,7 +46,7 @@ command block apply to the main query.
 `[{command,key=value}]`
 Ex: `[{regress,points=20}]`
 
-Not all commands will support options. Options may share names amongst commands, but vary slightly in behavior.
+Note: Not all commands will support options. Options may also share names amongst commands, but vary slightly in behavior.
 
 Usage Notes: (These will be demonstrated in example graphs below..)
 * Commands can be repeated for the same query, allowing different options. (IF different options are not used, the resulting data will be duplicative).
