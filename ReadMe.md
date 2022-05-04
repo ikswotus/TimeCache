@@ -1,7 +1,7 @@
 # TimeCache
 -----------------------
 
-TimeCache is a simple C# proxy server that is intended to sit between grafana and postgresql/timescale and cache results of common queries to offload some of the database work.
+TimeCache is a simple C# proxy server that is intended to sit between grafana and postgresql/timescale to cache query results and provide some simple analytic overlays for data charts.
 
 ## Note!
 This was initially written as a proof of concept, to see how difficult it would be to intercept postgres traffic and respond with additional data. It has slowly been morphing into a more legitimate project, but the code is still pretty rough. A good refactoring/cleanup may happen eventually, but for now this is more of a (sometimes) functional demo.
@@ -9,9 +9,9 @@ This was initially written as a proof of concept, to see how difficult it would 
 
 ## What can it do?
 
-1) Cache results of popular (or fixed) queries, so subsequent updates only need to hit the database for 'new' data. This frees up the database considerably when lots of dashboards are displaying information that is largely static (ie "old" data that is unlikely to change). Queries are 'normalized' so duplicate queries from different dashboards can all share the same cache.
-2) Meta-Commands for some very simple data analysis overlays within grafana charts.
-3) Decomposition of queries so multiple queries that may only differ in a predicate filter can share cached data. (A work in progress)
+1) Cache results of popular (or fixed) queries, so subsequent updates only need to hit the database for 'new' data. This frees up the database considerably when lots of dashboards are displaying information that is largely static (ie "old" data that is unlikely to change). Queries are roughly normalized so duplicate queries from different dashboards can all share the same cache.
+2) Meta-Commands that allow some *very* simple data analysis overlays within grafana charts.
+3) Decomposition of queries so multiple queries that may only differ in the predicate filter can share cached data. (A work in progress)
 
 
 ### Libraries/Programs involved:
@@ -21,6 +21,18 @@ This was initially written as a proof of concept, to see how difficult it would 
 
 ----------------------------
 # Caching Overview
+One of the main goals is to support caching recent query results, so subsequent queries can be modified to fetch only 'new' rows. This is designed for dashboard queries, where we may be looking at the last 1-3 hours, and constantly refreshing. Since most old data rarely changes, we don't really need to query the full window, only the most recent edge(and a small 'update' window).
+
+A configuration option through CachedQueryConfig.cs is planned to allow 'fixed' queries to always be in the cache, but any query that executes will be 
+
+Considerations:
+* If data frequently takes a while to make it into the database, using cached data is probably a bad idea. If data only sometimes comes in late, but is generally loaded in near real-time, this should work reasonably well. An update window can be used to increase the window of data that will be re-queried each refresh.
+* A flag allows for disabling the cache, so the query will be passed directly on to the database and the results not stored. 
+
+Caching TODO
+* Caches could be periodically re-queried, either in full or in small chunks to ensure long-term validity. One option would be to determine frequent queries, and automatically add them to the CachedQueryConfig schedule.
+* Finish implementing/testing the query config to allow scheduled queries.
+* Finish implementing cache-timeout/eviction due to memory pressure (oldest / last accessed)
 
 ----------------------------
 # Meta-Commands/Options
@@ -94,11 +106,12 @@ The returned series will be named after the original metric, and include the num
 <p>
 
 ### Agg Buckets
-Average of points in sub-intervals. Shows the average value over small intervals of time within a window.
+Aggregate data into sub-intervals for stats. Can currently show either the SUM or AVG of data within each bucket.
 
 ##### Options
 * Interval := string. Default 1h. Determines how wide the buckets should be. Supports w=weeks,d=days,h=hours,m=minutes,s=seconds. Should not be provided with quotes or extra spaces
 * Separate := Boolean. Default is false. Allows buckets to be returned as separate lines
+* Method := string. Default 'AVG', Only other supported option is 'SUM'.
 
 ![AggBucket](images/_demo_timecache_aggbuckets.png)
 
@@ -137,14 +150,12 @@ Simple horizontal lines.
 
 
 # Decomposition
-### What is it?
+#### What is it?
 A caching option that allows similar queries to share cached data.
 
-#### Why would I want it?
-* Minimize the actual number of queries issued to the database (to 1)
-* Row data is filtered by the caching server, not the database so it further frees up DB resources.
 
-#### Motivating example: (100% contrived)
+
+#### Motivating example:
 Let's say we want to look at resource utilization from our sample data. One option is to use a single query and graph everything in the same chart:
 
 ``` 
@@ -205,6 +216,13 @@ Internally, the query is parsed and any extra predicates (excluding the $__timeF
   * If one query groups by '60s' and another by '1m', they will be treated as separate queries and not share cache
   * If joins were done in a different order, these are now different queries...
 
+#### Why would I want it?
+* Minimize the actual number of queries issued to the database (ideally down to just 1)
+* Row data is filtered by the caching server, not the database so it further frees up DB resources.
+* Can still take advantage of caching, so even though we're issuing a more generic query, it should be less impactful than multiple filtered queries.
+
+#### Why would I NOT want it?
+* Depending on the cardinality of the source data, limiting by a handful of items of interest may significantly cut down on the number of rows retrieved/stored. The current implementation of Decomposition simply removes the predicate (A more ideal version may be to use 'IN' and still issue a limited query, so we know all cached rows are actually of interest and can reduce some of the potential bloat).
 
 -----------------------------
 Solution Overview
@@ -230,3 +248,5 @@ Getting started
 
 To have grafana talk to a TimeCacheNetworkServer, it simply needs to be added as a postgresql data source. It mimics enough of the connection setup so grafana will recognize it as a valid postgresql db. 
 Note: Currently it does NOT support any TLS/SSL modes, only basic authentication is currently supported.
+
+TODO: Installing/Setup notes
