@@ -3,6 +3,9 @@
 
 TimeCache is a simple C# proxy server that is intended to sit between grafana and postgresql/timescale and cache results of common queries to offload some of the database work.
 
+## Note!
+This was initially written as a proof of concept, to see how difficult it would be to intercept postgres traffic and respond with additional data. It has slowly been morphing into a more legitimate project, but the code is still pretty rough. A good refactoring/cleanup may happen eventually, but for now this is more of a (sometimes) functional demo.
+
 
 ## What can it do?
 
@@ -11,10 +14,11 @@ TimeCache is a simple C# proxy server that is intended to sit between grafana an
 3) Decomposition of queries so multiple queries that may only differ in a predicate filter can share cached data. (A work in progress)
 
 
-### Libraries/Programs used:
-* NPGSQL
-* Postgresql with Timescaledb
-* Grafana
+### Libraries/Programs involved:
+* NPGSQL(https://www.npgsql.org/) (Some Postgresql messaging is managed directly, but most queries will utilize NPGSQL since its a proper library)
+* Postgresql (https://www.postgresql.org/) (TimescaleDB optional: https://www.timescale.com/)
+* Grafana  (https://grafana.com/)
+
 ----------------------------
 # Caching Overview
 
@@ -54,6 +58,10 @@ Usage Notes: (These will be demonstrated in example graphs below..)
 
 ### Supported commands
 
+<details><summary>OFFSET</summary>
+
+<p>
+
 ### Offset
 Time-shifts data to overlay it onto current/newer data. Allows an easier comparison of recent data to older data.
 
@@ -62,8 +70,13 @@ Time-shifts data to overlay it onto current/newer data. Allows an easier compari
 * Interval := string - Timespan to shift data. Default is '1h'
 
 ![Offset](images/_demo_timecache_offset.png)
+</p>
+</details>
+   
+<details><summary>REGRESS</summary>
+<p>
 
-#### Regress
+### Regress
 Simple linear regression. Plots a straight line. The metric name will include the slope of the line (ie change in y value per x unit)
 
 ##### Options
@@ -73,8 +86,14 @@ Simple linear regression. Plots a straight line. The metric name will include th
 ![Regression](images/_demo_timecache_regress.png)
 
 The returned series will be named after the original metric, and include the number of points (* for all), followed by either the slope (s) or difference (d)
+<p>
+</details>
 
-#### Agg Buckets
+<details><summary>AGG BUCKETS</summary>
+   
+<p>
+
+### Agg Buckets
 Average of points in sub-intervals. Shows the average value over small intervals of time within a window.
 
 ##### Options
@@ -82,6 +101,12 @@ Average of points in sub-intervals. Shows the average value over small intervals
 * Separate := Boolean. Default is false. Allows buckets to be returned as separate lines
 
 ![AggBucket](images/_demo_timecache_aggbuckets.png)
+
+</p>
+</details>
+   
+<details><summary>STDDEV</summary>
+<p>
 
 #### STDDEV
 Standard deviation bounds. Draws fixed lines representing the average, avg + Nxstd and avg - Nxstd.
@@ -92,6 +117,12 @@ Standard deviation bounds. Draws fixed lines representing the average, avg + Nxs
 This example uses 2 commands, one to draw the box, and one to highlight outliers. Note: Uses several overrides within grafana for displaying a nicer view:
 
 ![STDDEV](images/_demo_timecache_stddev.png)
+</p>
+</details>
+
+<details><summary>LINES</summary>
+  
+<p>
 
 ### LINES
 Simple horizontal lines. 
@@ -101,8 +132,10 @@ Simple horizontal lines.
 * 'fixed' := string - Draws a horizontal line at the specified value. Supports format specifier postfix 'k|m|b' thousands/millions/billions for shorthand (fixed=4b is equivalent to fixed=4000000000)
 
 ![LINES](images/_demo_timecache_lines.png)
+   </p>
+</details>
 
-----------------------------
+
 # Decomposition
 ### What is it?
 A caching option that allows similar queries to share cached data.
