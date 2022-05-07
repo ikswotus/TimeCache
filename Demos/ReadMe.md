@@ -32,7 +32,7 @@ Save & Test should result in a 'Database Connection OK' message in grafana.
 If using the GUI, clicking 'Logs' should show some simple information about the incoming connection attempt.
 Grafana will (at least for now) run a simple 'SELECT 1' to verify connectivity.
 
-![UI](images/TimeCacheGUI_Home.jpg)
+![UI](images/TimeCacheGUI_ConnectDataSource.jpg)
 
 
 TODO: Error handling
@@ -69,7 +69,8 @@ SELECT *
 from generate_randomwalk_series($__timeFrom()::timestamptz, 
                                 $__timeTo()::timestamptz, interval '1m', 1)
 ```
-![RWALK](images/randomwalk.jpg)
+![RWALK](images/RandomWalk.jpg)
+
 Note: For testing, we will want a fixed table, so we'll use a simple definition
 ```
 CREATE TABLE demo.timeseries
