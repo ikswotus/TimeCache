@@ -435,10 +435,14 @@ namespace PostgresqlCommunicator
             MessageType = PGTypes.RowDescription;
             Fields = new List<RowDescriptionField>(fieldCount);
             OriginalTypes = new List<Type>(fieldCount);
+            
+            // Use MinValue - this needs to be first
+            Time = DateTime.MinValue;
         }
 
         private  RowDescription()
         {
+            Time = DateTime.MinValue;
             MessageType = PGTypes.RowDescription;
         }
 
@@ -505,6 +509,7 @@ namespace PostgresqlCommunicator
         {
             MessageType = PGTypes.ReadyForQuery;
             Status = _readyByte[0];
+            Time = DateTime.MaxValue;
         }
 
         private static readonly byte[] _readyByte = new byte[] { 0x49 };
@@ -553,6 +558,7 @@ namespace PostgresqlCommunicator
             MessageType = PGTypes.CommandCompletion;
             Tag = tag;
             Length = Tag.Length + _baseLength;
+            Time = DateTime.MaxValue.AddSeconds(-1);
         }
         public CommandCompletion() : base()
         { }

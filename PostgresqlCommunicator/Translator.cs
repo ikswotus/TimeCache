@@ -75,6 +75,9 @@ namespace PostgresqlCommunicator
             // First - Need a row descriptor identifying the columns
             RowDescription rd = new RowDescription(dt.Columns.Count);
 
+            short timeIndex = -1;
+            Type timeType = typeof(double);
+
             for(int i =0; i< dt.Columns.Count; i++)
             {
                 DataColumn dc = dt.Columns[i];
@@ -87,6 +90,12 @@ namespace PostgresqlCommunicator
                     
                 RowDescriptionField rdf = new RowDescriptionField(dc.ColumnName, TypeOIDMap[lookup], cl, i);
                 rd.Fields.Add(rdf);
+
+                if (dc.ColumnName.StartsWith("time", StringComparison.OrdinalIgnoreCase))
+                {
+                    timeIndex = (short)i;
+                    timeType = lookup;
+                }
             }
             mess.Add(rd);
             // Next - add row data
@@ -101,7 +110,8 @@ namespace PostgresqlCommunicator
                     PGField field = PGField.BuildField(ConvertObject(item));
                     drm.Fields.Add(field);
                 }
-
+                if(timeIndex != -1)
+                    drm.Time = GetDateTime(timeType, dr, timeIndex);
                 mess.Add(drm);
             }
 
@@ -136,6 +146,23 @@ namespace PostgresqlCommunicator
                 // Convert object to bytes
                 PGField field = PGField.BuildField(ConvertObject(item));
                 drm.Fields.Add(field);
+
+                //drm.Time = time;
+            }
+            return drm;
+        }
+
+        public static DataRowMessage BuildRowMessage(object[] items, DateTime time)
+        {
+            DataRowMessage drm = new DataRowMessage(items.Length);
+
+            foreach (object item in items)
+            {
+                // Convert object to bytes
+                PGField field = PGField.BuildField(ConvertObject(item));
+                drm.Fields.Add(field);
+
+                drm.Time = time;
             }
             return drm;
         }

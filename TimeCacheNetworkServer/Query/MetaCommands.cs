@@ -391,29 +391,52 @@ namespace TimeCacheNetworkServer
             }
             else if (string.Equals(query.Command, "lines", StringComparison.OrdinalIgnoreCase))
             {
-               
-                if (query.Options.Count == 0 || (query.Options.ContainsKey("min") && query.Options["min"].Equals("true", StringComparison.OrdinalIgnoreCase)))
+
+                bool fill = query.Options.ContainsKey("fill");
+                TimeSpan interval = new TimeSpan();
+                if(fill)
+                {
+                    interval = ParsingUtils.ParseInterval(query.Options["fill"]);
+                }
+
+                if (!query.Options.ContainsKey("fixed") || (query.Options.ContainsKey("min") && query.Options["min"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
                     double value = data.SeriesData.Values.Min(ts => ts.Data.Min(d => d.Value));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.Start, value }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.End, value }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.Start, value }, query.Start));
+                    
+                    if (fill)
+                        ret.AddRange(FillData("line_min", value, query.Start, query.End, interval));
+
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_min", query.End, value }, query.End));
                 }
 
-                if (query.Options.Count == 0 || (query.Options.ContainsKey("max") && query.Options["max"].Equals("true", StringComparison.OrdinalIgnoreCase)))
+                if (!query.Options.ContainsKey("fixed") || (query.Options.ContainsKey("max") && query.Options["max"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
                     double value = data.SeriesData.Values.Min(ts => ts.Data.Max(d => d.Value));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.Start, value }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.End, value }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.Start, value }, query.Start));
+                    if (fill)
+                        ret.AddRange(FillData("line_max", value, query.Start, query.End, interval));
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_max", query.End, value }, query.End));
                 }
 
-                if (query.Options.Count == 0 || (query.Options.ContainsKey("avg") && query.Options["avg"].Equals("true", StringComparison.OrdinalIgnoreCase)))
+                if (!query.Options.ContainsKey("fixed") || (query.Options.ContainsKey("avg") && query.Options["avg"].Equals("true", StringComparison.OrdinalIgnoreCase)))
                 {
                     double value = data.SeriesData.Values.Min(ts => ts.Data.Average(d => d.Value));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.Start, value }));
-                    ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.End, value }));
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.Start, value }, query.Start));
+                    if (fill)
+                        ret.AddRange(FillData("line_avg", value, query.Start, query.End, interval));
+                    ret.Add(Translator.BuildRowMessage(new object[] { "line_avg", query.End, value },  query.End ));
                 }
 
-               
+                if(query.Options.ContainsKey("fixed"))
+                {
+                    double value = ParsingUtils.ExpandNumeric(query.Options["fixed"]);
+                    string k = "line_fixed_" + query.Options["fixed"];
+                    ret.Add(Translator.BuildRowMessage(new object[] {k , query.Start, value }, query.Start));
+                    if (fill)
+                        ret.AddRange(FillData(k, value, query.Start, query.End, interval));
+                    ret.Add(Translator.BuildRowMessage(new object[] { k, query.End, value }, query.End));
+                }
 
                 return ret;
             }
@@ -549,13 +572,24 @@ namespace TimeCacheNetworkServer
             return null;
         }
 
-        /// <summary>
-        /// Separate data into 'series' based on a 'metric'
-        /// </summary>
-        /// <param name="query"></param>
-        /// <param name="qm"></param>
-        /// <returns></returns>
-        public static TimeCollection GetSeriesCollection(SpecialQuery query, QueryManager qm)
+        public static IEnumerable<PGMessage> FillData(string metric, double value, DateTime start, DateTime end, TimeSpan interval)
+        {
+
+            DateTime next = start + interval;
+            while (next < end)
+            {
+                yield return Translator.BuildRowMessage(new object[] { metric, next, value }, next);
+                next = next.Add(interval);
+            }
+        }
+
+    /// <summary>
+    /// Separate data into 'series' based on a 'metric'
+    /// </summary>
+    /// <param name="query"></param>
+    /// <param name="qm"></param>
+    /// <returns></returns>
+    public static TimeCollection GetSeriesCollection(SpecialQuery query, QueryManager qm)
         {
             DataTable table = qm.QueryToTable(query.RawQuery);
 
@@ -613,6 +647,7 @@ namespace TimeCacheNetworkServer
         private static DateTime _Epoch = new DateTime(1970, 01, 01);
     }
 
+  
     public enum AggMethod
     {
         AVG,

@@ -227,6 +227,8 @@ namespace TimeCacheNetworkServer.Caching
             {
                 // Need to know the actual size to be able to construct the pool.
                 PostgresqlCommunicator.DataRowMessage row = PostgresqlCommunicator.Translator.BuildRowMessage(table.Rows[0]);
+                
+
                 _pool = new Utils.FixedSizeBytePool(row.GetCompletedSize());
             }
 

@@ -296,6 +296,7 @@ namespace TimeCacheNetworkServer.Caching
                 cd.Objects = dr.ItemArray;
                 cd.RawDate = PostgresqlCommunicator.Translator.GetDateTime(timeType, dr, timeIndex);
                 cd.TranslatedMessage = PostgresqlCommunicator.Translator.BuildRowMessage(dr);
+                cd.TranslatedMessage.Time = cd.RawDate;
                 cd.TranslatedMessage.Set(_pool);
 
                 CurrentData.Add(cd);

@@ -11,6 +11,12 @@ namespace PostgresqlCommunicator
     /// </summary>
     public abstract class PGMessage
     {
+        public PGMessage()
+        {
+            // TODO: What to use for messages that aren't time-specific?
+            Time = DateTime.UtcNow;
+        }
+
         /// <summary>
         /// Type of message
         /// </summary>
@@ -41,6 +47,12 @@ namespace PostgresqlCommunicator
         {
             return _baseLength + GetPayloadLength();
         }
+
+        /// <summary>
+        /// Time column for sending results back to grafana
+        /// TODO: what if we dont have one???
+        /// </summary>
+        public DateTime Time { get; set; }
 
         protected abstract int GetPayloadLength();
 

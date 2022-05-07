@@ -1,17 +1,11 @@
-﻿using System;
+﻿using PostgresqlCommunicator;
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
-using System.Text;
-
-using System.Threading;
-
 using System.Net;
 using System.Net.Sockets;
-using PostgresqlCommunicator;
-using System.IO;
-using System.Text.RegularExpressions;
-
-using System.Data;
+using System.Threading;
 
 
 namespace TimeCacheNetworkServer
@@ -414,8 +408,6 @@ namespace TimeCacheNetworkServer
                                 }
                                 else
                                 {
-                                    //List<PGMessage> spList = new List<PGMessage>();
-
                                     foreach (SpecialQuery special in query.MetaCommands)
                                     {
                                         IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
@@ -426,19 +418,10 @@ namespace TimeCacheNetworkServer
 
                                     messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
                                     messageList.Add(new ReadyForQuery());
-
-                                    //NetworkMessage sPmess = ProtocolBuilder.BuildResponseMessage(messageList);
-                                    //long sb = sPmess.Send(s);
-                                    //// byte[] payload = ProtocolBuilder.BuildResponse(spList);
-
-                                    //// Send select result
-                                    //Debug("Sending special response");
-                                    ////int sb = s.Send(payload);
-                                    ////Trace("Sent: " + sb + ", " + payload.Length);
-                                    //Trace("Sent: " + sb);
                                 }
-
-                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
+                                
+                                // Send messages, ensuring time asc 
+                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList.OrderBy(r => r.Time));
                                 sent = message.Send(s);
                                 message = null;
 
@@ -451,9 +434,6 @@ namespace TimeCacheNetworkServer
                             {
                                 Critical("Unhandled type: " + PGTypes.GetType(pType));
                             }
-
-
-
 
                         }
                         Trace("Bytes handled: " + bytes);
