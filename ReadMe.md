@@ -226,8 +226,14 @@ Internally, the query is parsed and any extra predicates (excluding the $__timeF
 #### Why would I NOT want it?
 * Depending on the cardinality of the source data, limiting by a handful of items of interest may significantly cut down on the number of rows retrieved/stored. The current implementation of Decomposition simply removes the predicate (A more ideal version may be to use 'IN' and still issue a limited query, so we know all cached rows are actually of interest and can reduce some of the potential bloat).
 
+## Getting Started
+See /Demos (Work in progress) for setup/demonstrations
+
+
+
+#### Other:
 -----------------------------
-Solution Overview
+Core Projects:
 
 TimeCacheGUI - Simple WPF application to allow starting/stopping a server and viewing logs.
 
@@ -236,19 +242,3 @@ TimeCacheService - Allows running the TimeCacheNetworkServer as a windows servic
 TimeCacheNetworkServer - Actual server/caching implementation, all the fun stuff is in here.
 
 PostgresqlCommunicator - Handles postgresql wire format. Allows parsing the connection info from grafana's requests and translating the c# data table back into the raw psql format for grafana. This is not intended in any way to try to replace Npgsql. Message handling is very basic and only supports basic connections and simple queries.
-
-------
-Other:
-SLog - Extremely simple logging helper.
-
-SimpleStatsGenerator - Small executable to generate testing data.
-
-Utils - Helper classes, table manager for bulk inserting sample stats.
-
---------------------------------------
-Getting started
-
-To have grafana talk to a TimeCacheNetworkServer, it simply needs to be added as a postgresql data source. It mimics enough of the connection setup so grafana will recognize it as a valid postgresql db. 
-Note: Currently it does NOT support any TLS/SSL modes, only basic authentication is currently supported.
-
-TODO: Installing/Setup notes
