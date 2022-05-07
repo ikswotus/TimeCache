@@ -68,6 +68,8 @@ Usage Notes: (These will be demonstrated in example graphs below..)
 * Commands can be repeated for the same query, allowing different options. (IF different options are not used, the resulting data will be duplicative).
 * Commands are evaluated per-series, so queries returning multiple metrics will have multiple command results.
 
+Note: Many of these (like 'lines' or 'agg_buckets') are super simple and can easily be done via regular queries without too much effort. Implementing them as custom commands is done to make it easy to enable/disable them or easily adjust based on params without having to deal with copy/pasting/modifying an existing long query. Commands have access to the cached data already, so we are not burdening the db with any additional queries to generate them.
+
 ### Supported commands
 
 <details><summary>OFFSET</summary>
