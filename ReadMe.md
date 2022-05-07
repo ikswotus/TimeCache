@@ -145,6 +145,7 @@ Simple horizontal lines.
 #### Options
 * 'avg|min|max' := Boolean - Allows limiting lines to only min,max, or avg. By default, all 3 will be enabled unless 'fixed' is specified
 * 'fixed' := string - Draws a horizontal line at the specified value. Supports format specifier postfix 'k|m|b' thousands/millions/billions for shorthand (fixed=4b is equivalent to fixed=4000000000)
+* fill := interval - Allows 'filling in' the lines with points spaced by this interval. The latest grafana will not typically connect our two points unless 'connect null values' is set for the timeseries chart options.
 
 ![LINES](images/_demo_timecache_lines.png)
    </p>
