@@ -115,6 +115,9 @@ namespace PostgresqlCommunicator
         /// <param name="data"></param>
         public void Write(byte[] data)
         {
+            if (data == null)
+                return;
+
             if (data.Length + _currentPosition >= Buffer.Length)
                 throw new Exception("Not enough space in buffer");
 

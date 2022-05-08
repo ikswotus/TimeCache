@@ -261,7 +261,9 @@ namespace TimeCacheNetworkServer
                 // inside the loop we remain connected...
                 s.ReceiveTimeout = 2000;
 
-                byte[] buffer = new byte[1024];
+                // TODO: Support reading until 'length' has been reached.
+                // Initial buffer was 1024 and NPGSQL's initial query exceeds this
+                byte[] buffer = new byte[4096];
 
                 #region Startup
 
@@ -271,7 +273,20 @@ namespace TimeCacheNetworkServer
                 if (bytes <= 4)
                     throw new Exception("invalid startup packet. Length <= 4");
 
+
                 StartupMessage sm = StartupMessage.ParseMessage(buffer, 0);
+                
+                // TODO: Add a Test(buffer) that can determine if we are dealing with
+                // a StartupMessage or an SSLRequest
+                if (sm.MajorVersion == 1234 && sm.MinorVersion == 5679)
+                {
+                    s.Send(new byte[] { (byte)'N' });
+                    bytes = s.Receive(buffer);
+                    sm = StartupMessage.ParseMessage(buffer, 0);
+                }
+                
+                if (sm.MajorVersion != 3 || sm.MinorVersion != 0)
+                    throw new Exception("Startup message protocol not supported, only 3.0 is allowed, received: " + sm.MajorVersion + "." + sm.MinorVersion);
 
                 long sent = 0;
                 if (_postgresIP != null)
@@ -366,64 +381,73 @@ namespace TimeCacheNetworkServer
                                 int index = i + 5;
 
                                 // Parsing Test
-                                PostgresqlCommunicator.SimpleQuery sq = new PostgresqlCommunicator.SimpleQuery(buffer, index, length);
-                                Debug("Received query: [" + sq.Query + "]");
+                                PostgresqlCommunicator.SimpleQuery rootQuery = new PostgresqlCommunicator.SimpleQuery(buffer, index, length);
 
-                                Query.NormalizedQuery query = qp.Normalize(sq.Query);
-
-
+                                List<PostgresqlCommunicator.SimpleQuery> queries = rootQuery.Split();
                                 List<PGMessage> messageList = new List<PGMessage>();
-
-                                if (query.AllowCache)
+                                foreach (SimpleQuery sq in queries)
                                 {
-                                    if (!query.ReturnMetaOnly)
+                                    Debug("Received query: [" + sq.Query + "]");
+
+                                    Query.NormalizedQuery query = qp.Normalize(sq.Query);
+
+                                    if (query.AllowCache)
                                     {
-                                        IEnumerable<PGMessage> res = qm.CachedQuery(query);
-                                        if (res == null)
+                                        if (!query.ReturnMetaOnly)
                                         {
-                                            Error("Cached query returned null?");
+                                            IEnumerable<PGMessage> res = qm.CachedQuery(query);
+                                            if (res == null)
+                                            {
+                                                Error("Cached query returned null?");
+                                            }
+                                            else
+                                            {
+                                                messageList.AddRange(res);
+                                            }
                                         }
                                         else
                                         {
-                                            messageList.AddRange(res);
+                                            Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
+                                            if (!query.ExecuteMetaOnly)
+                                                qm.CachedQuery(query, false);
                                         }
                                     }
                                     else
                                     {
-                                        Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
-                                        if (!query.ExecuteMetaOnly)
-                                            qm.CachedQuery(query, false);
+                                        Trace("Not allowed to cache: Simple query");
+                                        messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
                                     }
-                                }
-                                else
-                                {
-                                    Trace("Not allowed to cache: Simple query");
-                                    messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
-                                }
 
-                                if (query.MetaCommands.Count == 0)
-                                {
-                                    messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
-                                    messageList.Add(new ReadyForQuery());
-                                }
-                                else
-                                {
-                                    foreach (SpecialQuery special in query.MetaCommands)
+                                    if (query.MetaCommands.Count == 0)
                                     {
-                                        IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
-                                        if (messages == null)
-                                            continue;
-                                        messageList.AddRange(messages);
+                                        messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
+                                       // messageList.Add(new ReadyForQuery());
+                                    }
+                                    else
+                                    {
+                                        foreach (SpecialQuery special in query.MetaCommands)
+                                        {
+                                            IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
+                                            if (messages == null)
+                                                continue;
+                                            messageList.AddRange(messages);
+                                        }
+
+                                        messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
+                                       // messageList.Add(new ReadyForQuery());
                                     }
 
-                                    messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
-                                    messageList.Add(new ReadyForQuery());
-                                }
-                                
-                                // Send messages, ensuring time asc 
-                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList.OrderBy(r => r.Time));
+
+                                    // Send messages, ensuring time asc 
+                                    //NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList.OrderBy(r => r.Time));
+                                   //  sent = message.Send(s);
+                                  //  message = null;
+
+                                }// Done with all queries
+                                messageList.Add(new ReadyForQuery());
+                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
                                 sent = message.Send(s);
-                                message = null;
+                               // s.Send(ProtocolBuilder.BuildResponseMessage(new ReadyForQuery()));
 
                                 sw.Stop();
                                 VTrace("TotalTime: " + sw.ElapsedMilliseconds.ToString());

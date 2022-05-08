@@ -170,27 +170,27 @@ namespace PostgresqlCommunicator
         public static byte[] ConvertObject(object o)
         {
             Type t = o.GetType();
-            if(t == typeof(string))
+            if (t == typeof(string))
             {
                 return Encoding.ASCII.GetBytes(o as string);
             }
-            else if(t == typeof(Int32))
+            else if (t == typeof(Int32))
             {
                 Int32 i = (Int32)o;
                 return Encoding.ASCII.GetBytes(i.ToString("G20"));
             }
-            else if(t == typeof(double))
+            else if (t == typeof(double))
             {
                 // Eww. Convert to string, then string to bytes.
                 Double d = (Double)o;
                 return Encoding.ASCII.GetBytes(d.ToString("G20"));
             }
-            else if(t == typeof(DateTime))
+            else if (t == typeof(DateTime))
             {
                 DateTime d = (DateTime)o;
                 return Encoding.ASCII.GetBytes((d - _epoch).TotalMilliseconds.ToString("G20"));
             }
-            else if(t == typeof(Decimal))
+            else if (t == typeof(Decimal))
             {
                 Decimal d = (Decimal)o;
                 return Encoding.ASCII.GetBytes(d.ToString("G20"));
@@ -200,6 +200,26 @@ namespace PostgresqlCommunicator
                 Int64 i = (Int64)o;
                 return Encoding.ASCII.GetBytes(i.ToString("G20"));
             }
+            else if (t == typeof(UInt32))
+            {
+                UInt32 i = (UInt32)o;
+                return Encoding.ASCII.GetBytes(i.ToString("G20"));
+            }
+            else if (t == typeof(char))
+            {
+                return Encoding.ASCII.GetBytes(o.ToString());
+            }
+            else if (t == typeof(bool))
+            {
+                bool b = Boolean.Parse(o.ToString());
+                if (b)
+                    return new byte[] { 0x01 };
+                return new byte[] { 0x00 };
+
+            }
+            else if (t == typeof(DBNull))
+                return null;
+
             throw new Exception("Unsupported conversion type: " + t);
         }
 
@@ -226,9 +246,12 @@ namespace PostgresqlCommunicator
         {
             {typeof(String), 25 },
             {typeof(Double), 701},
+            {typeof(char), 18},
+            {typeof(bool), 16},
             {typeof(int), 23 },
             {typeof(long), 20},
-         //   {typeof(Int64), 20 },
+            {typeof(UInt32), 23 },
+           // {typeof(Int64), 20 },
             // Lie - we'll convert datetime to doubles
             {typeof(DateTime), 701},
 
@@ -249,6 +272,9 @@ namespace PostgresqlCommunicator
             {1184, typeof(DateTime)},
             {1700, typeof(float) },
 
+            {18, typeof(char)},
+            
+
             //TESTING
            // {typeof(Decimal), 701 }
         };
@@ -262,7 +288,10 @@ namespace PostgresqlCommunicator
             {typeof(Double), 8},
             {typeof(int), 4 },
             {typeof(long), 8 },
-          //  {typeof(Int64), 8 },
+            {typeof(char), 1 },
+            {typeof(bool), 1 },
+            {typeof(UInt32), 4 },
+           // {typeof(Int64), 8 },
             // Lie - we'll convert datetime to doubles
             {typeof(DateTime), 8},
 
@@ -271,3 +300,4 @@ namespace PostgresqlCommunicator
 
     }
 }
+

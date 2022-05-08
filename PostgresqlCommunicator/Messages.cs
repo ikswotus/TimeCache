@@ -121,8 +121,8 @@ namespace PostgresqlCommunicator
             sm.MinorVersion = MessageParser.ReadShort(buffer, ref index);
             // TODO: For now only allow 3.0.
             // TODO: Make this a configuration option? 3.1 may 'just work'
-            if (sm.MajorVersion != 3 || sm.MinorVersion != 0)
-                throw new Exception("Only protocol version 3.0 is currently supported: " + sm.MajorVersion + "." + sm.MinorVersion);
+            //if (sm.MajorVersion != 3 || sm.MinorVersion != 0)
+            //    throw new Exception("Only protocol version 3.0 is currently supported: " + sm.MajorVersion + "." + sm.MinorVersion);
 
             while (index < sm.Length - 1)
             {
@@ -131,7 +131,7 @@ namespace PostgresqlCommunicator
                 p.Value = MessageParser.ReadString(buffer, ref index, sm.Length);
                 sm.Params.Add(p);
             }
-            if (index != sm.Length - 1 || buffer[index] != 0x00)
+            if (sm.Length > 8 && index != sm.Length - 1 || buffer[index] != 0x00)
             {
                 throw new Exception("Failed to locate null terminator of startup message");
             }
@@ -225,10 +225,12 @@ namespace PostgresqlCommunicator
 
         public static PGField BuildField(byte[] data)
         {
+            int l = (data != null) ? data.Length : -1;
+
             PGField f = new PGField()
             {
                 Data = data,
-                ColumnLength = data.Length
+                ColumnLength = l
             };
             return f;
         }
@@ -661,6 +663,39 @@ namespace PostgresqlCommunicator
             Buffer.BlockCopy(b, 0, bytes, 0, b.Length);
 
             return bytes;
+        }
+
+        
+        /// <summary>
+        /// Look for ';' characters and split a query into separate queries.
+        /// 
+        /// This was exposed by NPGSQL's connection initialization where they send several queries
+        /// in one 'SimpleQuery'
+        /// 
+        /// TODO: Perhaps we should maintain SimpleQuery as a single message, and have 'Query' be a list instead?
+        /// </summary>
+        /// <returns></returns>
+        public List<SimpleQuery> Split()
+        {
+            int semiIndex = Query.IndexOf(';');
+
+            if(semiIndex == -1)
+            {
+                return new List<SimpleQuery> { this };
+            }
+            List<SimpleQuery> queries = new List<SimpleQuery>();
+            string sourceQuery = Query;
+            while(semiIndex != -1)
+            {
+                string sub = sourceQuery.Substring(0, semiIndex);
+
+                queries.Add(new SimpleQuery(sub));
+
+                sourceQuery = sourceQuery.Substring(semiIndex + 1);
+                semiIndex = sourceQuery.IndexOf(';');
+            }
+
+            return queries;
         }
     }
 
