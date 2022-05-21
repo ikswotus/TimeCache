@@ -343,6 +343,9 @@ namespace TimeCacheNetworkServer
 
                 Query.QueryParser qp = new Query.QueryParser(_logger);
 
+
+                System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+
                 while (!_stop)
                 {
                     try
@@ -368,16 +371,17 @@ namespace TimeCacheNetworkServer
                         for (int i = 0; i < bytes; i++)
                         {
                             byte pType = buffer[i];
-
+                            int length = (buffer[i + 1] << 24 | buffer[i + 2] << 16 | buffer[i + 3] << 8 | buffer[i + 4]);
+                            
+                            if(length < 4)
+                            {
+                                Critical("Length < 4?");
+                            }
+                            length -= 4;
                             if (pType == PGTypes.SimpleQuery)
                             {
-                                System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
-                                sw.Start();
+                                sw.Restart();
 
-                                // Get Length
-                                int length = (buffer[i + 1] << 24 | buffer[i + 2] << 16 | buffer[i + 3] << 8 | buffer[i + 4]);
-                                length -= 4;
-                                //Console.WriteLine("Length: " + length);
                                 int index = i + 5;
 
                                 // Parsing Test
@@ -385,78 +389,59 @@ namespace TimeCacheNetworkServer
 
                                 List<PostgresqlCommunicator.SimpleQuery> queries = rootQuery.Split();
                                 List<PGMessage> messageList = new List<PGMessage>();
+                                
                                 foreach (SimpleQuery sq in queries)
                                 {
-                                    Debug("Received query: [" + sq.Query + "]");
+                                    messageList.AddRange(HandleQuery(qp, qm, sq.Query));
+                                }
 
-                                    Query.NormalizedQuery query = qp.Normalize(sq.Query);
-
-                                    if (query.AllowCache)
-                                    {
-                                        if (!query.ReturnMetaOnly)
-                                        {
-                                            IEnumerable<PGMessage> res = qm.CachedQuery(query);
-                                            if (res == null)
-                                            {
-                                                Error("Cached query returned null?");
-                                            }
-                                            else
-                                            {
-                                                messageList.AddRange(res);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
-                                            if (!query.ExecuteMetaOnly)
-                                                qm.CachedQuery(query, false);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Trace("Not allowed to cache: Simple query");
-                                        messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
-                                    }
-
-                                    if (query.MetaCommands.Count == 0)
-                                    {
-                                        messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
-                                       // messageList.Add(new ReadyForQuery());
-                                    }
-                                    else
-                                    {
-                                        foreach (SpecialQuery special in query.MetaCommands)
-                                        {
-                                            IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
-                                            if (messages == null)
-                                                continue;
-                                            messageList.AddRange(messages);
-                                        }
-
-                                        messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
-                                       // messageList.Add(new ReadyForQuery());
-                                    }
-
-
-                                    // Send messages, ensuring time asc 
-                                    //NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList.OrderBy(r => r.Time));
-                                   //  sent = message.Send(s);
-                                  //  message = null;
-
-                                }// Done with all queries
                                 messageList.Add(new ReadyForQuery());
                                 NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
                                 sent = message.Send(s);
-                               // s.Send(ProtocolBuilder.BuildResponseMessage(new ReadyForQuery()));
-
+                               
                                 sw.Stop();
                                 VTrace("TotalTime: " + sw.ElapsedMilliseconds.ToString());
+
+                                i += (length + 5);
+                            }
+                            else if(pType == PGTypes.Parse)
+                            {
+                                /***
+                                 * Extended Query Format - UGH
+                                 * 
+                                 * Rather than actually try to support this whole protocol, look for the query in the 
+                                 * Parse message, do our best to validate the 'middle' messages.
+                                 * 
+                                 * Error Response should be sent for anything we cant validate
+                                 * 
+                                 */
+                                //https://www.postgresql.org/docs/current/protocol-flow.html#PROTOCOL-FLOW-EXT-QUERY
+                                int index = i + 5;
+
+                                PostgresqlCommunicator.Messages.ParseExtMessage parse = new PostgresqlCommunicator.Messages.ParseExtMessage(buffer, ref index, length);
+
+                                // TODO: Actually handle these. For now we'll just skip everything and send the Parse/Bind completes
+                                index = ParseExpected(buffer, index, PGTypes.Bind, "BIND");
+                                index = ParseExpected(buffer, index, PGTypes.Describe, "DESCRIBE");
+                                index = ParseExpected(buffer, index, PGTypes.Execute, "EXECUTE");
+                                index = ParseExpected(buffer, index, PGTypes.Sync, "SYNC");
+
+                                List<PGMessage> messageList = new List<PGMessage>();
+                                messageList.Add(new PostgresqlCommunicator.Messages.EmptyMessage(PGTypes.ParseCompletion));
+                                messageList.Add(new PostgresqlCommunicator.Messages.EmptyMessage(PGTypes.BindCompletion));
+
+                                messageList.AddRange(HandleQuery(qp, qm, parse.Query));
+
+                                messageList.Add(new ReadyForQuery());
+                                NetworkMessage message = ProtocolBuilder.BuildResponseMessage(messageList);
+                                sent = message.Send(s);
 
                                 i += (length + 5);
                             }
                             else
                             {
                                 Critical("Unhandled type: " + PGTypes.GetType(pType));
+                                i += (length + 5);
                             }
 
                         }
@@ -471,7 +456,6 @@ namespace TimeCacheNetworkServer
                         // Attempt to forward message details
                         try
                         {
-                            
                             PostgresqlCommunicator.ErrorResponseMessage erm = new ErrorResponseMessage();
                             erm.Severity = npgExc.Data["Severity"] as string;
                             erm.Code = npgExc.Data["SqlState"].ToString();
@@ -491,9 +475,34 @@ namespace TimeCacheNetworkServer
                             throw exc;
                         }
                     }
+                    catch (Exception regExc)
+                    {
+                        Error("Failure: " + regExc.ToString());
+                        // Attempt to forward message details
+                        try
+                        {
+
+                            PostgresqlCommunicator.ErrorResponseMessage erm = new ErrorResponseMessage();
+                            erm.Severity = "ERROR";
+                            erm.Code = "22000"; // TODO: This is 'data_exception' - Find a way to map these?
+                            erm.Message = regExc.Message;
+                            erm.Position = "0";
+                            // TODO: Report line/file from stack trace??
+                            erm.File = "TODO: Server";
+                            erm.Line = "TODO: Line";
+                            erm.Routine = "TODO: Routine";
+
+                            List <PGMessage> response = new List<PGMessage>() { erm, new ReadyForQuery() };
+                            NetworkMessage errorResp = ProtocolBuilder.BuildResponseMessage(response);
+                            errorResp.Send(s);
+                        }
+                        catch (Exception exc)
+                        {
+                            Critical("Failed to send error response message:" + exc.ToString());
+                            throw exc;
+                        }
+                    }
                 }
-
-
             }
             catch (ThreadAbortException)
             {
@@ -526,6 +535,86 @@ namespace TimeCacheNetworkServer
             }
         }
 
+        /// <summary>
+        /// Helper for skipping ExtendedFormat messages
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="index"></param>
+        /// <param name="expectedType"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static int ParseExpected(byte[] buffer, int index, int expectedType, string type)
+        {
+            int pType = buffer[index];
+            if (pType != expectedType)
+                throw new Exception("Expected " + type + ". Found:" + pType.ToString("X2"));
+            return ReadSkip(buffer, index);
+        }
+
+        public static int ReadSkip(byte[] buffer, int index)
+        {
+            int length = (buffer[index + 1] << 24 | buffer[index + 2] << 16 | buffer[index + 3] << 8 | buffer[index + 4]);
+            if (length < 4)
+                throw new Exception("Invalid length: " + length);
+            if (index + length + 1> buffer.Length)
+                throw new Exception("Invalid length: " + length + " exceeds buffer");
+            return index + length + 1;
+        }
+
+        public List<PGMessage> HandleQuery(Query.QueryParser qParser, QueryManager qm, string queryStr)
+        {
+            Debug("Received query: [" + queryStr + "]");
+
+            List<PGMessage> messageList = new List<PGMessage>();
+
+            Query.NormalizedQuery query = qParser.Normalize(queryStr);
+
+            if (query.AllowCache)
+            {
+                if (!query.ReturnMetaOnly)
+                {
+                    IEnumerable<PGMessage> res = qm.CachedQuery(query);
+                    if (res == null)
+                    {
+                        Error("Cached query returned null?");
+                    }
+                    else
+                    {
+                        messageList.AddRange(res);
+                    }
+                }
+                else
+                {
+                    Debug("Meta-Only query received, executing: " + query.ExecuteMetaOnly);
+                    if (!query.ExecuteMetaOnly)
+                        qm.CachedQuery(query, false);
+                }
+            }
+            else
+            {
+                Trace("Not allowed to cache: Simple query");
+                messageList.AddRange(PostgresqlCommunicator.Translator.BuildResponseFromData(qm.SimpleQuery(query)));
+            }
+
+            if (query.MetaCommands.Count == 0)
+            {
+                messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
+            }
+            else
+            {
+                foreach (SpecialQuery special in query.MetaCommands)
+                {
+                    IEnumerable<PGMessage> messages = MetaCommands.HandleSpecial(special, qm, query);
+                    if (messages == null)
+                        continue;
+                    messageList.AddRange(messages);
+                }
+
+                messageList.Add(new CommandCompletion("SELECT " + (messageList.Count - 1)));
+            }
+            return messageList;
+        }
 
     }
 }

@@ -217,7 +217,7 @@ namespace TimeCacheNetworkServer.Caching
             if(table.Rows.Count == 0)
             {
                 Debug("0 row count?");
-               // return;
+                return;
             }
 
             if (_timeIndex == -1)
