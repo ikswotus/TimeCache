@@ -18,6 +18,12 @@ namespace TimeCacheNetworkServer.Caching
     /// </summary>
     public class CacheSegment : SLog.SLoggableObject
     {
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="logger"></param>
+        /// <param name="pool"></param>
         public CacheSegment(string key, SLog.ISLogger logger, Utils.FixedSizeBytePool pool)
             : base(key, logger)
         {
@@ -30,6 +36,9 @@ namespace TimeCacheNetworkServer.Caching
             return CurrentData.LongCount();
         }
 
+        /// <summary>
+        /// Free 
+        /// </summary>
         public void Clear()
         {
             Trace("Clearing segment");

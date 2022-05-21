@@ -40,6 +40,9 @@ namespace TimeCacheNetworkServer.Caching
         /// </summary>
         public List<DateTime> CacheUsage = new List<DateTime>();
 
+        /// <summary>
+        /// Remove all cached rows
+        /// </summary>
         public void Clear()
         {
             foreach(CacheSegment segment in _segments)
@@ -47,9 +50,16 @@ namespace TimeCacheNetworkServer.Caching
                 segment.Clear();
                 CacheUsage.Clear();
             }
+            _segments.Clear();
         }
 
-        
+        /// <summary>
+        /// Return data in the form of a DataTable object
+        /// </summary>
+        /// <param name="query">Our source query</param>
+        /// <param name="inclusiveEnd">True if end timestamp should be included</param>
+        /// <returns>Results of query</returns>
+        /// <exception cref="Exception"></exception>
         public DataTable GetTable(Query.NormalizedQuery query, bool inclusiveEnd = true)
         {
 
@@ -103,13 +113,10 @@ namespace TimeCacheNetworkServer.Caching
 
             if (needed.Count > 0)
             {
-                // TODO: query new ranges + Merge/Create segments as needed
                 Trace("Found: {0} missing ranges", needed.Count);
                 foreach (QueryRange qr in needed)
                 {
                     Trace("Missing: {0} -> {1}", qr.StartTime.ToString("O"), qr.EndTime.ToString("O"));
-
-
                 }
                 foreach (QueryRange need in needed)
                 {

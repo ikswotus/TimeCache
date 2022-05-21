@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30225.117
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeCacheNetworkServer", "TimeCacheNetworkServer\TimeCacheNetworkServer.csproj", "{610294AC-C0A6-4210-8A44-C933892FFAAA}"
 EndProject
@@ -33,6 +33,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerTester", "ServerTester\ServerTester.csproj", "{5C5A188A-A438-49A6-A6D5-9DB9A016D74D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SetupTestDatabase", "SetupTestDatabase\SetupTestDatabase.csproj", "{619EACE0-9D27-4F2E-9E2F-5E84882F1841}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TC_Tests", "TC_Tests\TC_Tests.csproj", "{906A7D88-5B6E-477F-871E-FF7B15657494}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -88,6 +90,10 @@ Global
 		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{619EACE0-9D27-4F2E-9E2F-5E84882F1841}.Release|Any CPU.Build.0 = Release|Any CPU
+		{906A7D88-5B6E-477F-871E-FF7B15657494}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{906A7D88-5B6E-477F-871E-FF7B15657494}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{906A7D88-5B6E-477F-871E-FF7B15657494}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{906A7D88-5B6E-477F-871E-FF7B15657494}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -12,7 +12,7 @@ namespace TimeCacheService {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.10.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.2.0.0")]
     internal sealed partial class TCSettings : global::System.Configuration.ApplicationSettingsBase {
         
         private static TCSettings defaultInstance = ((TCSettings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new TCSettings())));
