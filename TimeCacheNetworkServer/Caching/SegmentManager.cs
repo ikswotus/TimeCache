@@ -9,18 +9,27 @@ using System.Data;
 namespace TimeCacheNetworkServer.Caching
 {
     /// <summary>
-    /// interface to cached segments.
+    /// A SegmentManager should created per query.
+    /// Cached data will be managed in segments,
+    /// which cover a query range (start->end).
+    /// When a query is issued, we check to see if
+    /// any/all of it is covered by existing segments.
+    ///
+    /// If all of the range is covered (rare case)
+    /// we simply return the existing data.
     /// 
-    /// Segmentation is hidden from caller
+    /// If no ranges is covered, the original query is executed and a segment
+    /// will be created covering the entire range.
     /// 
+    /// If only some is covered, we identify missing ranges
+    /// and execute 1+ queries to fill in the gaps. 
     /// 
-    /// TODO: 
-    /// Rules for dropping/merging segements
+    /// TODO: Rules on eviction/dropping/merging of segments
     /// </summary>
     public class SegmentManager : SLog.SLoggableObject
     {
         /// <summary>
-        /// 
+        /// Constructor - 
         /// </summary>
         /// <param name="querier"></param>
         /// <param name="logger"></param>
@@ -32,6 +41,9 @@ namespace TimeCacheNetworkServer.Caching
             _querier = querier;
         }
 
+        /// <summary>
+        /// Identify the segment query/source. Mostly for bookkeeping/stats
+        /// </summary>
         private readonly string _tag;
 
         /// <summary>
@@ -123,7 +135,7 @@ namespace TimeCacheNetworkServer.Caching
                     SetResults(_querier.CachedQuery(query, need), need.StartTime, need.EndTime);
                 }
 
-                // Ensure we have minimal segmenation
+                // Ensure we have minimal segmentation
                 MergeSegments();
             }
             else
@@ -141,19 +153,25 @@ namespace TimeCacheNetworkServer.Caching
             return cs;
         }
 
+        public List<QueryRange> GetMissingRanges(QueryRange requested)
+        {
+            return GetMissingRanges(requested, TimeSpan.Zero, TimeSpan.Zero);
+        }
+
         /// <summary>
         /// Retrieve any gaps in @requested that is not currently cached.
         /// </summary>
         /// <param name="requested">Timespan of data to check for cached</param>
         /// <returns>0+ ranges</returns>
-        private List<QueryRange> GetMissingRanges(QueryRange requested, TimeSpan bucketTime, TimeSpan updateTime)
+        public List<QueryRange> GetMissingRanges(QueryRange requested, TimeSpan bucketTime, TimeSpan updateTime)
         {
             List<QueryRange> needed = new List<QueryRange> { requested };
 
+            // As we walk segments, modify 'needed' to only be what is still missing
             for (int i = 0; i < _segments.Count; i++)
             {
                 List<QueryRange> newRanges = new List<QueryRange>();
-                for(int j =0; j< needed.Count; j++)
+                for (int j = 0; j < needed.Count; j++)
                 {
                     newRanges.AddRange(_segments[i].Intersect(needed[j], bucketTime, updateTime));
                 }
@@ -163,7 +181,7 @@ namespace TimeCacheNetworkServer.Caching
                 if (needed.Count == 0)
                     return needed;
 
-               
+
             }
 
             return needed;
@@ -253,6 +271,18 @@ namespace TimeCacheNetworkServer.Caching
             
         }
 
+        /// <summary>
+        /// TODO: Added for testing -  refactor/redesign this so its not hacked in...
+        /// </summary>
+        /// <param name="segment"></param>
+        public void AddSegment(CacheSegment segment, bool merge = true)
+        {
+            _segments.Add(segment);
+
+            if(merge)
+                MergeSegments();
+        }
+
         public List<SegmentSummary> GetSegmentSummaries()
         {
             return _segments.Select(s => new SegmentSummary(_tag, s.DataStartTime, s.DataEndTime, s.Count())).ToList();
@@ -278,34 +308,5 @@ namespace TimeCacheNetworkServer.Caching
         /// </summary>
         private List<CacheSegment> _segments = new List<CacheSegment>(1);
     }
-
-
-    public class SegmentSummary
-    {
-        public SegmentSummary(string tag, DateTime start, DateTime end, long count)
-        {
-            Tag = tag;
-            Start = start;
-            End = end;
-            Count = count;
-        }
-
-        public long Count { get; private set; }
-        public DateTime End { get; private set; }
-        public DateTime Start { get; private set; }
-        public string Tag { get; private set; }
-
-        public List<SegmentPoint> ToPoints(string tag)
-        {
-            return new List<SegmentPoint>(){new  SegmentPoint() {  Count = this.Count, Tag = tag, Timestamp = this.Start},
-                 new SegmentPoint() {  Count = this.Count, Tag = tag, Timestamp = this.End} };
-        }
-    }
-
-    public class SegmentPoint
-    {
-        public string Tag { get; set; }
-        public long Count { get; set; }
-        public DateTime Timestamp { get; set; }
-    }
+    
 }

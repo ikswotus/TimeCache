@@ -54,8 +54,8 @@ namespace TimeCacheNetworkServer.Query
             {
                 query.ValidTimestamps = true;
 
-                startTime = DateTime.Parse(tm.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
-                endTime = DateTime.Parse(tm.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AssumeUniversal);
+                startTime = DateTime.Parse(tm.Groups["start_time"].Value, null, System.Globalization.DateTimeStyles.AdjustToUniversal);
+                endTime = DateTime.Parse(tm.Groups["end_time"].Value, null, System.Globalization.DateTimeStyles.AdjustToUniversal);
 
                 query.StartTime = startTime;
                 query.EndTime = endTime;

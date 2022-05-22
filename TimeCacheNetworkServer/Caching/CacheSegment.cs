@@ -15,6 +15,11 @@ namespace TimeCacheNetworkServer.Caching
     /// @StartTime to @EndTime.
     /// 
     /// Segments must be locked when accessing/clearing/updating
+    /// 
+    /// TODO: Review Overlaps() (and helpers) to see if we should 
+    /// account for bucket/update intervals BEFORE 
+    /// deciding data is cached instead of after.
+    /// 
     /// </summary>
     public class CacheSegment : SLog.SLoggableObject
     {
@@ -93,9 +98,16 @@ namespace TimeCacheNetworkServer.Caching
             return Contains(range) || OverlapsStart(range);
         }
 
+        /// <summary>
+        /// Envelops is true if:
+        /// Segment is fully between Start and End of query
+        /// </summary>
+        /// <param name="range"></param>
+        /// <returns></returns>
         public bool Enveloped(QueryRange range)
         {
-            return (DataStartTime >= range.StartTime && DataEndTime <= range.EndTime);
+            return (DataStartTime > range.StartTime && DataEndTime < range.EndTime);
+
         }
 
         public bool Contains(QueryRange range)
@@ -132,6 +144,14 @@ namespace TimeCacheNetworkServer.Caching
         {
             return Intersect(qr, TimeSpan.Zero, TimeSpan.Zero);
         }
+
+        /// <summary>
+        /// Retrieve necessary ranges
+        /// </summary>
+        /// <param name="qr">Range of data to be queried</param>
+        /// <param name="bucketInterval"></param>
+        /// <param name="updateInterval"></param>
+        /// <returns></returns>
         public List<QueryRange> Intersect(QueryRange qr, TimeSpan bucketInterval, TimeSpan updateInterval)
         {
             if (Contains(qr))

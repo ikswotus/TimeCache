@@ -76,5 +76,7 @@ namespace TimeCacheNetworkServer.Query
         {
             return _table;
         }
+
+
     }
 }

@@ -85,6 +85,7 @@
     <Compile Include="Caching\CacheSegment.cs" />
     <Compile Include="Caching\Eviction.cs" />
     <Compile Include="Caching\MemoryUtils.cs" />
+    <Compile Include="Caching\SegmentSummary.cs" />
     <Compile Include="QueryRange.cs" />
     <Compile Include="Caching\SegmentManager.cs" />
     <Compile Include="GlobalOptions.cs" />
